@@ -6,4 +6,4 @@ Mathias Quelin ✅
 
 ### ❗Attention❗
 
-- L'espace de stockage du repository est actuellement limité à 500MB. Ne Stockez pas les .pickle de vos réseaux de neurones et autres fichiers volumineux sur ce repository.
+- L'espace de stockage du repository est actuellement limité à 500MB. Ne stockez pas les .pickle de vos réseaux de neurones et autres fichiers volumineux sur ce repository.
