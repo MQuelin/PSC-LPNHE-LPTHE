@@ -1,9 +1,10 @@
 import pickle
+import numpy
 import torch
 from sklearn.neighbors import KernelDensity
+from scipy.stats import uniform
 from pathlib import Path
 
-a = torch.tensor([[1,2,3,4]])
+data = torch.tensor(uniform.rvs(size=(10000,2)))
 
-print(a)
-print(a**2)
+print(data.shape)

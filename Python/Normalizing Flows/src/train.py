@@ -48,7 +48,7 @@ class KernelBasedTrainer:
         absolute_path = Path(__file__).parent
         save_path = absolute_path/save_path/save_name
 
-        # torch.save(self.flow, save_path)
+        torch.save(self.flow, save_path)
 
         return training_loss
 
@@ -56,7 +56,7 @@ class NormTrainer:
 
     """
     Tainer used to train a model to transtion from a normal distribution to another.
-    Both the target distribution has to be an instance of sklearn.neighbors.KernelDensity
+    The target distribution has to be an instance of sklearn.neighbors.KernelDensity
     """
 
     def __init__(self, flow, optimizer, training_output_density: KernelDensity, data_dim, device) -> None:
@@ -91,9 +91,10 @@ class NormTrainer:
 
             training_loss.append(loss.item())
         
-        absolute_path = Path(__file__).parent
-        save_path = absolute_path/save_path/save_name
+        absolute_path = Path(__file__).parent.parent
+        save_path = absolute_path/save_path/'models'/save_name
 
-        # torch.save(self.flow, save_path)
+        print(f'Saving model at {save_path.name()}')
+        torch.save(self.flow, save_path)
 
         return training_loss

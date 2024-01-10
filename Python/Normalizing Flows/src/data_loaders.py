@@ -1,10 +1,10 @@
 import pickle
 import torch
 from sklearn.neighbors import KernelDensity
+from scipy.stats import uniform
 from pathlib import Path
 
 class ZeeDataset:
-
 
     def __init__(self, relative_path: str) -> None:
         """
@@ -40,3 +40,12 @@ class ZeeDataset:
         outputs = torch.tensor([x1,x2,x3,x4,x5,x6]).transpose(0,1)
         self.KDE_of_outputs = KernelDensity()
         self.KDE_of_outputs.fit(outputs)
+
+class TempUniform:
+    """
+    Load a simple uniform probability over [0,1]x[0,1]
+    """
+    def __init__(self) -> None:
+        data = torch.tensor(uniform.rvs(size=(10000,2)))
+        self.KDE_of_outputs = KernelDensity(bandwidth=0.01)
+        self.KDE_of_outputs.fit(data)
