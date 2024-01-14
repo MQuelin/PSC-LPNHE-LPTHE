@@ -17,7 +17,9 @@ batch_size = 10000
 
 trainer = NormTrainer(flow, optimizer, data.KDE_of_outputs, 2, device)
 
-loss = trainer.train_and_save(nb_epochs, batch_size)
+loss = trainer.train(nb_epochs, batch_size)
+
+trainer.save_at()
 
 plt.plot(range(nb_epochs), loss)
 plt.show()
