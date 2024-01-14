@@ -1,7 +1,7 @@
 import torch
 
 from flows import SimplePlanarNF
-from data_loaders import TempUniform
+from data_loaders import ZeeDataset, TempUniform
 from train import NormTrainer
 
 
@@ -9,10 +9,10 @@ import matplotlib.pyplot as plt
 
 flow = SimplePlanarNF(64, 2)
 optimizer = torch.optim.Adam(flow.parameters(), lr=1e-2)
-data = TempUniform()
-device = 'cuda'
+data = TempUniform(data_dim=2)
+device = 'cpu'
 
-nb_epochs = 200
+nb_epochs = 300
 batch_size = 10000
 
 trainer = NormTrainer(flow, optimizer, data.KDE_of_outputs, 2, device)

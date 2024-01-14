@@ -24,7 +24,7 @@ class KernelBasedTrainer:
         
 
 
-    def train_and_save(self, nb_epochs, batch_size, save_path = '', save_name = 'NFModel.pt'):
+    def train(self, nb_epochs, batch_size):
         training_loss = []
         
         for epoch in tqdm(range(nb_epochs)):
@@ -44,13 +44,15 @@ class KernelBasedTrainer:
             self.optimizer.step()
 
             training_loss.append(loss.item())
-        
+
+        return training_loss
+    
+    def save_at(self, save_path = '', save_name = 'NFModel.pt') :
         absolute_path = Path(__file__).parent
         save_path = absolute_path/save_path/save_name
 
+        print(f'Saving model at {save_path}')
         torch.save(self.flow, save_path)
-
-        return training_loss
 
 class NormTrainer:
 
@@ -90,11 +92,12 @@ class NormTrainer:
             self.optimizer.step()
 
             training_loss.append(loss.item())
-        
-        absolute_path = Path(__file__).parent.parent
-        save_path = absolute_path/save_path/'models'/save_name
-
-        print(f'Saving model at {save_path.name()}')
-        torch.save(self.flow, save_path)
 
         return training_loss
+    
+    def save_at(self, save_path = '', save_name = 'NFModel.pt') :
+        absolute_path = Path(__file__).parent
+        save_path = absolute_path/save_path/save_name
+
+        print(f'Saving model at {save_path}')
+        torch.save(self.flow, save_path)

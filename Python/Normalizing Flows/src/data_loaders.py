@@ -34,18 +34,20 @@ class ZeeDataset:
         
         
         inputs = torch.tensor([z1,z2,z3,z4,z5,z6]).transpose(0,1)
-        self.KDE_of_inputs = KernelDensity()
+        self.KDE_of_inputs = KernelDensity(bandwidth="silverman")
         self.KDE_of_inputs.fit(inputs)
         
         outputs = torch.tensor([x1,x2,x3,x4,x5,x6]).transpose(0,1)
-        self.KDE_of_outputs = KernelDensity()
+        self.KDE_of_outputs = KernelDensity(bandwidth="silverman")
         self.KDE_of_outputs.fit(outputs)
 
 class TempUniform:
     """
-    Load a simple uniform probability over [0,1]x[0,1]
+    Load a simple uniform probability over [0,1]^N where N is data_dim
+
+    Temporary, meant to be used for testing purposes
     """
-    def __init__(self) -> None:
-        data = torch.tensor(uniform.rvs(size=(10000,2)))
+    def __init__(self, data_dim) -> None:
+        data = torch.tensor(uniform.rvs(size=(10000,data_dim)))
         self.KDE_of_outputs = KernelDensity(bandwidth=0.01)
         self.KDE_of_outputs.fit(data)
