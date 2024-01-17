@@ -80,7 +80,7 @@ class NormTrainer:
             zk, log_jacobian = self.flow(z0)
 
             # Evaluate the exact and approximated densities
-            flow_log_density = gaussian_log_pdf(z0.to('cpu')).unsqueeze(1) + log_jacobian.to('cpu') # This formula is a consequence of the change of variable done using the normalizing flow
+            flow_log_density = gaussian_log_pdf(z0.to('cpu')).unsqueeze(1) - log_jacobian.to('cpu') # This formula is a consequence of the change of variable done using the normalizing flow
             exact_log_density = torch.tensor(self.training_output_density.score_samples(zk.to('cpu').detach())).unsqueeze(1)
 
             # Compute the loss
