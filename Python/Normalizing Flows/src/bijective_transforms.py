@@ -107,13 +107,15 @@ class AdditiveCouplingLayer(nn.Module):
         Arguments:
             - data_dim: int: dimension of the data distribution
         """
-        super.__init__()
+        super().__init__()
+
+        assert n<=data_dim
 
         self.n = n
         self.m = m
         self.s = s
     
-    def forward(self, z):
+    def forward(self, z, reverse="false"):
         """
         Performs transform on axis 1 of z
         
@@ -125,16 +127,41 @@ class AdditiveCouplingLayer(nn.Module):
             -log_det: the log of the absolute value of the determinent of the Jacobian of fθ evaluated in z
         """
         data_dim = z.shape[-1]
-        (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
 
-        scaling_vector = self.s(z1)
+        if not reverse:
 
-        x1 = z1
-        x2 = torch.exp(scaling_vector) * z2 + self.m(z1) 
-        x = torch.concat((z1,z1), dim=1)
+            # Permute Tensor first element
+            permutation_tensor = torch.LongTensor([5,0,1,2,3,4])
+            z = z[:,permutation_tensor]
 
-        log_det = scaling_vector.sum(1)
+            #Perform operation
+            (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
 
-        return x, log_det
+            scaling_vector = torch.exp(self.s(z1))
+
+            x1 = z1
+            x2 = torch.exp(scaling_vector) * z2 + self.m(z1) 
+            x = torch.concat((x1,x2), dim=1)
+
+            log_det = scaling_vector.sum(1)
+
+            return x, log_det
+        else:
+
+            # Permute Tensor first element
+            reverse_permutation_tensor = torch.LongTensor([1,2,3,4,5,0])
+            z = z[:,reverse_permutation_tensor]
+
+            (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
+
+            scaling_vector = torch.exp(self.s(z1))
+
+            x1 = z1
+            x2 = (z2 - self.m(z1))/scaling_vector
+            x = torch.concat((x1,x2), dim=1)
+
+            log_det = - scaling_vector.sum(1)
+
+            return x, log_det
 
 

@@ -10,19 +10,18 @@ class MLP(nn.Module):
     Simple Multi Layered Perceptron with ReLU activation layers
     """
 
-    def __init__(self, input_dim, layer_dim_list):
+    def __init__(self, features_dim_list):
         """
         Arguments:
-            -input_dim: dimension of input
-            -layer_dim_list: list of dimensions of each layer. Last int in the list is the output dimension of the transform
+            -features_dim_list: list of dimensions of each layer. first(resp. last) int in the list is the input(resp. output) dimension of the transform
         """
+        super().__init__()
 
         self.transform = nn.Sequential()
 
-        for n in layer_dim_list:
-            self.transform.add_module(nn.Linear(input_dim, n))
-            self.transform.add_module(nn.ReLU())
-            input_dim = n
+        for k in range(len(features_dim_list)-1):
+            self.transform.add_module(f'module_{k}_1', nn.Linear(features_dim_list[k], features_dim_list[k+1]))
+            self.transform.add_module(f'module_{k}_2', nn.ReLU())
         
     def forward(self, z):
         """
@@ -34,7 +33,5 @@ class MLP(nn.Module):
         Returns: 
             -x: Torch.tensor of size (m, output_dim)
         """
-
-        x = self.transform(z)
-
-        return x
+        
+        return self.transform(z)

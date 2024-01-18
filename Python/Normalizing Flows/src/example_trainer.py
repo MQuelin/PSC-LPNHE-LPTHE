@@ -1,25 +1,27 @@
 import torch
 
-from flows import SimplePlanarNF
-from data_loaders import ZeeDataset, TempUniform
-from train import NormTrainer
+from flows import SimpleAdditiveNF
+from datasets import ZeeDataset
+from train import Trainer
 
 
 import matplotlib.pyplot as plt
 
-flow = SimplePlanarNF(64, 2)
-optimizer = torch.optim.Adam(flow.parameters(), lr=1e-2)
-data = TempUniform(data_dim=2)
-device = 'cpu'
+flow = SimpleAdditiveNF(24, 6)
+optimizer = torch.optim.Adam(flow.parameters(), lr=1e-3)
+data = ZeeDataset('../data/data_dict.pkl')
+device = 'cuda'
 
-nb_epochs = 300
-batch_size = 10000
+nb_epochs = 15
+batch_size = 2000
 
-trainer = NormTrainer(flow, optimizer, data.KDE_of_outputs, 2, device)
+dataloader = torch.utils.data.DataLoader(data, batch_size=batch_size, shuffle=False)
 
-loss = trainer.train(nb_epochs, batch_size)
+trainer = Trainer(flow, optimizer, dataloader, 6, device)
 
-trainer.save_at()
+loss = trainer.train(nb_epochs)
 
-plt.plot(range(nb_epochs), loss)
+trainer.save_at(save_name="Test_1")
+
+plt.plot(range(len(loss)), loss)
 plt.show()
