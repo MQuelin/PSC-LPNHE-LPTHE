@@ -1,5 +1,6 @@
 import pickle
 from pathlib import Path
+import torch
 
 absolute_path = Path(__file__).parent
 relative_path = '../data/data_dict.pkl'
@@ -11,4 +12,8 @@ with open(open_path, 'rb') as f:
 
 print('Done')
 
-print(data_dict.keys())
+a = torch.tensor([[1.,-1.,3.],[4.,50.,6.]])
+a_mean = torch.mean(a, dim=0,)
+a_std = torch.std(a, dim=0)
+
+print((a-a_mean)/a_std)

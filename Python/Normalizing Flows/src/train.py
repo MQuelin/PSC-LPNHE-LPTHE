@@ -3,11 +3,6 @@ from tqdm import tqdm
 
 from pathlib import Path
 
-from sklearn.neighbors import KernelDensity
-from scipy.stats import multivariate_normal
-
-from flow_utils import gaussian_log_pdf
-
 class Trainer:
 
     """
@@ -43,7 +38,7 @@ class Trainer:
 
         return training_loss
     
-    def save_at(self, save_path = '', save_name = 'NFModel.pt') :
+    def save_at(self, save_path = '../models', save_name = 'NFModel.pt') :
         absolute_path = Path(__file__).parent
         save_path = absolute_path/save_path/save_name
 
@@ -91,7 +86,7 @@ class ConditionalTrainer:
 
         return training_loss
     
-    def save_at(self, save_path = '', save_name = 'NFModel.pt') :
+    def save_at(self, save_path = '../models', save_name = 'NFModel.pt') :
         absolute_path = Path(__file__).parent
         save_path = absolute_path/save_path/save_name
 

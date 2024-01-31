@@ -3,6 +3,8 @@ import torch
 from torch.utils.data import Dataset
 from torch.nn.functional import normalize
 from pathlib import Path
+from numpy import array as np_array
+from numpy import float32 as np_float32
 
 class ZeeDataset(Dataset):
 
@@ -24,15 +26,31 @@ class ZeeDataset(Dataset):
         z2 = data_dict['eta_truth']
         z3 = data_dict['phi_truth']
 
-        x1 = data_dict['e']
-        x2 = data_dict['et']
-        x3 = data_dict['eta']
-        x4 = data_dict['phi']
-        x5 = data_dict['reta']
-        x6 = data_dict['rphi']
+        x= []
+        x.append(data_dict['e'])
+        x.append(data_dict['et'])
+        x.append(data_dict['eta'])
+        x.append(data_dict['phi'])
+        x.append(data_dict['reta'])
+        x.append(data_dict['rphi'])
+        x.append(data_dict['rhad'])
+        x.append(data_dict['eratio'])
+        # x.append(data_dict['weta2']) causes nan to appear when normalized, reason unknown as of know, commented out
+        x.append(data_dict['f1'])
+        x.append(data_dict['f3'])
         
-        self.inputs = normalize(torch.tensor([z1,z2,z3]).transpose(0,1), dim= 0)
-        self.outputs = normalize(torch.tensor([x1,x2,x3,x4,x5,x6]).transpose(0,1), dim = 0)
+        self.inputs = torch.tensor([z1,z2,z3]).transpose(0,1)
+        self.outputs = torch.tensor([xi for xi in x]).transpose(0,1)
+
+        #Normalization
+        in_mean = torch.mean(self.inputs, dim=0, keepdim = True)
+        in_std = torch.std(self.inputs, dim=0, keepdim = True)
+        out_mean = torch.mean(self.outputs, dim=0, keepdim = True)
+        out_std = torch.std(self.outputs, dim=0, keepdim = True)
+
+        self.inputs = (self.inputs - in_mean) / in_std
+        self.outputs = (self.outputs - out_mean) / out_std
+        
         print('Dataset Loaded !')
 
     def __len__(self):
