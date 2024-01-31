@@ -5,6 +5,8 @@ from misc_transforms import *
 
 class SimplePlanarNF(nn.Module):
     """
+    Deprecated
+
     A simple Normalizing Flow where each layer is a Tanh Planar Flow
     """
     def __init__(self, flow_length, data_dim):
@@ -42,5 +44,32 @@ class SimpleAdditiveNF(nn.Module):
         log_jacobians = 0
         for layer in self.layers:
             z, log_jacobian = layer(z, reverse)
+            log_jacobians += log_jacobian
+        return z, log_jacobians
+
+class ConditionalNF(nn.Module):
+    """
+    A flow utilizing conditional affine coupling layers
+    """
+    def __init__(self, flow_length, input_dim, output_dim):
+        super().__init__()
+
+        n = output_dim//2
+
+        self.layers = nn.Sequential()
+        for k in range(flow_length):
+            self.layers.add_module(f'Module_{k}', ConditionalAffineCouplingLayer(input_dim=input_dim,
+                                                                                 output_dim=output_dim,
+                                                                                 n=n,
+                                                                                 m1=MLP([output_dim - n + input_dim, 10, 10, n]),
+                                                                                 m2=MLP([n + input_dim, 10, 10, output_dim - n]),
+                                                                                 s1=MLP([output_dim - n + input_dim, 10, 10, n]),
+                                                                                 s2=MLP([n + input_dim, 10, 10, output_dim - n])
+                                                                                ))
+        
+    def forward(self, c, z, reverse="false"):
+        log_jacobians = 0
+        for layer in self.layers:
+            z, log_jacobian = layer(c, z, reverse)
             log_jacobians += log_jacobian
         return z, log_jacobians

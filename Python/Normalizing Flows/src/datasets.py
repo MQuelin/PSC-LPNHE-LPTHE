@@ -23,9 +23,6 @@ class ZeeDataset(Dataset):
         z1 = data_dict['e_truth']
         z2 = data_dict['eta_truth']
         z3 = data_dict['phi_truth']
-        z4 = data_dict['px_truth']
-        z5 = data_dict['py_truth']
-        z6 = data_dict['pz_truth']
 
         x1 = data_dict['e']
         x2 = data_dict['et']
@@ -34,13 +31,9 @@ class ZeeDataset(Dataset):
         x5 = data_dict['reta']
         x6 = data_dict['rphi']
         
-        self.inputs = normalize(torch.tensor([z1,z2,z3,z4,z5,z6]).transpose(0,1), dim= 0)
+        self.inputs = normalize(torch.tensor([z1,z2,z3]).transpose(0,1), dim= 0)
         self.outputs = normalize(torch.tensor([x1,x2,x3,x4,x5,x6]).transpose(0,1), dim = 0)
-
-        assert self.inputs.shape == self.inputs.shape
-
-        print(self.inputs.shape)
-        print('Done !')
+        print('Dataset Loaded !')
 
     def __len__(self):
         return self.inputs.shape[0] - 1

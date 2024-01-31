@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from numpy.random import permutation
 
 """
 File containing different classes used as bijective transforms that can be composed together to create normalizing flows
@@ -81,7 +82,7 @@ class AdditiveCouplingLayer(nn.Module):
     Module used to apply an additive coupling layer transform (see below) to a batch of n-dimmensionnal data points
     ------------
     Fields:
-        -n: int: numbers of first coordinates of initial vector that will be preserved through the identity transform
+        -n: int: number coordinates of initial vector that will be preserved through the identity transform
         -m: lambda (x: Torch.tensor of size(n) -> Torch.tensor of size(data_dim - n)), point wise operation function,
             operating on the last dim of a Torch.tensor
             can be a trainable neural network
@@ -90,7 +91,7 @@ class AdditiveCouplingLayer(nn.Module):
             can be a trainable neural network
 
     Forward mapping process without scaling:
-        z = (z1,z2) where size of z1 is (n)
+        z = (z1,z2) where size of z1 is (n), the split is the result of a random permutation. This permutation is a constant of each additive coupling layer instance
         x1 = z1
         x2 = z2 + m(z1)         (this is why the layer is said to be additive)
     
@@ -114,6 +115,12 @@ class AdditiveCouplingLayer(nn.Module):
         self.n = n
         self.m = m
         self.s = s
+
+        self.permutation_tensor = torch.LongTensor(permutation([i for i in range(data_dim)]))
+        self.reverse_permutation_tensor = torch.LongTensor(permutation([0 for i in range(data_dim)]))
+        for i in range(data_dim):
+            self.reverse_permutation_tensor[self.permutation_tensor[i]] = i
+
     
     def forward(self, z, reverse="false"):
         """
@@ -130,9 +137,8 @@ class AdditiveCouplingLayer(nn.Module):
 
         if not reverse:
 
-            # Permute Tensor first element
-            permutation_tensor = torch.LongTensor([5,0,1,2,3,4])
-            z = z[:,permutation_tensor]
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            z = z[:,self.permutation_tensor]
 
             #Perform operation
             (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
@@ -143,14 +149,13 @@ class AdditiveCouplingLayer(nn.Module):
             x2 = torch.exp(scaling_vector) * z2 + self.m(z1) 
             x = torch.concat((x1,x2), dim=1)
 
-            log_det = scaling_vector.sum(1)
+            log_det = torch.log(scaling_vector.sum(1))
 
             return x, log_det
         else:
 
-            # Permute Tensor first element
-            reverse_permutation_tensor = torch.LongTensor([1,2,3,4,5,0])
-            z = z[:,reverse_permutation_tensor]
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            z = z[:,self.reverse_permutation_tensor]
 
             (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
 
@@ -160,8 +165,115 @@ class AdditiveCouplingLayer(nn.Module):
             x2 = (z2 - self.m(z1))/scaling_vector
             x = torch.concat((x1,x2), dim=1)
 
-            log_det = - scaling_vector.sum(1)
+            log_det = - torch.log(scaling_vector.sum(1))
 
             return x, log_det
 
 
+class ConditionalAffineCouplingLayer(nn.Module):
+    """
+    Module used to apply an additive coupling layer transform, conditioned by a vector (see below) to a batch of n-dimmensionnal data points
+    This is a modified version of AdditiveCouplingLayer used to train models with conditioning
+    ------------
+    Forward mapping process with scaling and conditioning: (here @ is the Hadamar matrix product)
+
+        z = (z1,z2) where size of z1 is (n)
+        
+        x1 = z1 @ exp(s1(z2,c)) + m1(z2,c)
+        x2 = z2 @ exp(s2(x1,c)) + m2(x1,c)
+    
+    Reverse mapping process with scaling and conditioning: (here @ is the Hadamar matrix product)
+
+        x = (x1,x2) where size of x1 is (data_dim - n)
+        
+        z2 = (x2 - m2(x1,c)) @ ( 1/exp(s2(x1,c)) )
+        z1 = (x1 - m1(z2,c)) @ ( 1/exp(s1(z2,c)) )
+                
+    see for reference:  https://deepgenerativemodels.github.io/notes/flow/
+                        https://arxiv.org/abs/1907.02392
+                        https://arxiv.org/abs/1911.02052
+    """
+
+    def __init__(self, input_dim: int, output_dim: int, n: int, m1, m2, s1, s2):
+        """
+        Arguments:
+            - input_dim: int: dimension of the input or 'label'
+            - output_dim: int: dimension of the data
+            - n: int: number coordinates of initial vector that will be preserved through the identity transform
+            - m1: lambda x: Torch.tensor of size (data_dim - n + input_dim) -> Torch.tensor of size(n), point wise operation function,
+                operating on the last dim of a Torch.tensor
+                can be a trainable neural network
+            - m2: lambda x: Torch.tensor of size (n + input_dim) -> Torch.tensor of size(data_dim - n), point wise operation function,
+                operating on the last dim of a Torch.tensor
+                can be a trainable neural network
+            - s1: lambda x: Torch.tensor of size (data_dim - n + input_dim) -> Torch.tensor of size(n), point wise operation function,
+                operating on the last dim of a Torch.tensor
+                can be a trainable neural network
+            - s2: lambda x: Torch.tensor of size (n + input_dim) -> Torch.tensor of size(data_dim - n), point wise operation function,
+                operating on the last dim of a Torch.tensor
+                can be a trainable neural network
+
+    
+        """
+        super().__init__()
+
+        assert n<=output_dim
+
+        self.n = n
+        self.m1 = m1
+        self.m2 = m2
+        self.s1 = s1
+        self.s2 = s2
+
+
+    def forward(self, c, z, reverse="false"):
+        """
+        Performs transform on axis 1 of z
+        
+        Arguments:
+            -c: Torch.tensor of size (m, input_dim) where m is batch size and data_dim is dim of input/condition vectors
+            -z: Torch.tensor of size (m, data_dim) where m is batch size and data_dim is dim of data vectors
+
+        Returns: 
+            -x: Torch.tensor of size (m, data_dim) where x is the result of the transform
+            -log_det: the log of the absolute value of the determinent of the Jacobian of fθ evaluated in z
+        """
+        data_dim = z.shape[-1]
+
+        if not reverse:
+
+            #Split tensor
+            (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
+
+            z2c = torch.concat((z2,c), dim=1)
+            scaling_vector_1 = self.s1(z2c)
+            x1 = z1 * torch.exp(scaling_vector_1) + self.m1(z2c)
+
+            x1c = torch.concat((x1,c), dim=1)
+            scaling_vector_2 = self.s2(x1c)
+            x2 = z2 * torch.exp(scaling_vector_2) + self.m2(x1c)
+
+            x = torch.concat((x1,x2), dim=1)
+
+            log_det = scaling_vector_1.sum(1) + scaling_vector_2.sum(1)
+
+            return x, log_det
+        else:
+
+            #Split tensor
+            (x1,x2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
+
+
+            x1c = torch.concat((x1,c), dim=1)
+            scaling_vector_1 = self.s2(x1c)
+            z2 = (x2 - self.m2(x1c)) / torch.exp(scaling_vector_1)
+
+            z2c = torch.concat((z2,c), dim=1)
+            scaling_vector_2 = self.s1(z2c)
+            z1 = (x1 - self.m1(z2c)) / torch.exp(scaling_vector_2)
+
+            z = torch.concat((z1,z2), dim=1)
+
+            log_det = - scaling_vector_1.sum(1) - scaling_vector_2.sum(1)
+
+            return z, log_det

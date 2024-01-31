@@ -1,10 +1,14 @@
-import torch
-from sklearn.neighbors import KernelDensity
-from scipy.stats import uniform
+import pickle
 from pathlib import Path
 
-data = torch.tensor([[1,2,3,4,5,6],[1,2,3,4,5,6]])
-permutation_tensor = torch.LongTensor([0,1,2,3,5,4])
+absolute_path = Path(__file__).parent
+relative_path = '../data/data_dict.pkl'
+open_path = absolute_path / relative_path
 
-print(data)
-print(data[:, permutation_tensor])
+with open(open_path, 'rb') as f:
+    data_dict = pickle.load(f)
+    print('Now loading dataset ...')
+
+print('Done')
+
+print(data_dict.keys())
