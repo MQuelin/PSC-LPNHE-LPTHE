@@ -55,10 +55,11 @@ class ConditionalNF(nn.Module):
     """
     A flow utilizing conditional affine coupling layers
     """
-    def __init__(self, flow_length, input_dim, output_dim):
+    def __init__(self, flow_length, input_dim, output_dim, device='cuda'):
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.device=device
 
         n = output_dim//2
 
@@ -81,10 +82,13 @@ class ConditionalNF(nn.Module):
         return z, log_jacobians
 
     def sample(self, c):
+
         batch_size = c.shape[0]
+        c = c.to(self.device)
+
         gaussian = multivariate_normal(cov=np.eye(self.output_dim-self.input_dim))
-        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size))
+        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device).to(torch.float32)
 
         z = torch.concat((c,dummy_variable), dim=1)
 
-        return self.forward(c, z, reverse="false")
+        return self.forward(c, z, reverse=False)
