@@ -1,6 +1,6 @@
 import pickle
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, TensorDataset
 from torch.nn.functional import normalize
 from pathlib import Path
 from numpy import array as np_array
