@@ -22,7 +22,6 @@ data_train, data_test = torch.utils.data.random_split(data,
 nb_epochs = 30
 batch_size = 1000
 
-# question: why you set shuffle=False???
 dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True)
 dataloader_test = torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True)
 
