@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 flow = SimpleAdditiveNF(24, 6)
 optimizer = torch.optim.Adam(flow.parameters(), lr=1e-3)
 data = ZeeDataset('../data/data_dict.pkl')
-device = 'cuda'
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 nb_epochs = 15
 batch_size = 2000
