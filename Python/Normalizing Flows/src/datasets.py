@@ -43,13 +43,13 @@ class ZeeDataset(Dataset):
         self.outputs = torch.tensor([xi for xi in x]).transpose(0,1)
 
         #Normalization
-        in_mean = torch.mean(self.inputs, dim=0, keepdim = True)
-        in_std = torch.std(self.inputs, dim=0, keepdim = True)
-        out_mean = torch.mean(self.outputs, dim=0, keepdim = True)
-        out_std = torch.std(self.outputs, dim=0, keepdim = True)
+        self._in_mean = torch.mean(self.inputs, dim=0, keepdim = True)
+        self._in_std = torch.std(self.inputs, dim=0, keepdim = True)
+        self._out_mean = torch.mean(self.outputs, dim=0, keepdim = True)
+        self._out_std = torch.std(self.outputs, dim=0, keepdim = True)
 
-        self.inputs = (self.inputs - in_mean) / in_std
-        self.outputs = (self.outputs - out_mean) / out_std
+        self.inputs = (self.inputs - self._in_mean) / self._in_std
+        self.outputs = (self.outputs - self._out_mean) / self._out_std
         
         print('Dataset Loaded !')
 

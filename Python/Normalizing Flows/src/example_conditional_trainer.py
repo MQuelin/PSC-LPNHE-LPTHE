@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 
-flow = ConditionalNF(12, 3, 10)
+flow = ConditionalNF(24, 3, 10)
 optimizer = torch.optim.Adam(flow.parameters(), lr=5e-4)
 data = ZeeDataset('../data/data_dict.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -29,7 +29,7 @@ trainer = ConditionalTrainer(flow, optimizer, dataloader, dataloader_test, 3, 10
 
 loss_train, loss_test = trainer.train(nb_epochs)
 
-trainer.save_at(save_path= "../models", save_name="ConditionalNF_12layers_10kZee_noRings_310124.pt")
+trainer.save_at(save_path= "../models", save_name="ConditionalNF_24layers_10kZee_noRings_140224.pt")
 
 plt.plot(range(len(loss_train)), loss_train)
 plt.show()
