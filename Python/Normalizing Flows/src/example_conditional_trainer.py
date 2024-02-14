@@ -15,7 +15,8 @@ data = ZeeDataset('../data/data_dict.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 ### Dividing the data on train and test
-train_len = int(0.8 * len(data))
+percentage_train = 0.8
+train_len = int(percentage_train * len(data))
 data_train, data_test = torch.utils.data.random_split(data, 
                                                       [train_len, len(data)-train_len])
 
