@@ -54,8 +54,16 @@ class SimpleAdditiveNF(nn.Module):
 class ConditionalNF(nn.Module):
     """
     A flow utilizing conditional affine coupling layers
+    MLPs are used for applying the affine coupling layer
+    The default shape for the MLP is four layers with 10 weights in the center and the appropriate weights to maintain valid input and output dimensions
     """
-    def __init__(self, flow_length, input_dim, output_dim, device='cuda'):
+
+    def __init__(self, flow_length, input_dim, output_dim,MLP_shape_list = [10,10], device='cuda'):
+        """
+        MLP_shape_list: used to modify the shape of the MLPs used in the affine coupling layers;
+                        the length of the list is the number of inner layers;
+                        the int at idex i is the number of weights of the layer of index i in the MLP
+        """
         super().__init__()
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -65,13 +73,16 @@ class ConditionalNF(nn.Module):
 
         self.layers = nn.Sequential()
         for k in range(flow_length):
+            shape_list_1 = [output_dim - n + input_dim] + MLP_shape_list + [n]
+            shape_list_2 = [n + input_dim] + MLP_shape_list + [output_dim - n]
+            m1 = MLP(shape_list_1)
+            m2 = MLP(shape_list_2)
+            s1 = MLP(shape_list_1)
+            s2 = MLP(shape_list_2)
             self.layers.add_module(f'Module_{k}', ConditionalAffineCouplingLayer(input_dim=input_dim,
                                                                                  output_dim=output_dim,
                                                                                  n=n,
-                                                                                 m1=MLP([output_dim - n + input_dim, 10, 10, n]),
-                                                                                 m2=MLP([n + input_dim, 10, 10, output_dim - n]),
-                                                                                 s1=MLP([output_dim - n + input_dim, 10, 10, n]),
-                                                                                 s2=MLP([n + input_dim, 10, 10, output_dim - n])
+                                                                                 m1=m1,m2=m2,s1=s1,s2=s2
                                                                                 ))
         
     def forward(self, c, z, reverse="false"):

@@ -1,9 +1,10 @@
-# import pickle
-# from pathlib import Path
-# import torch
+import pickle
+from pathlib import Path
+import torch
+import matplotlib.pyplot as plt
 
 # absolute_path = Path(__file__).parent
-# relative_path = '../data/data_dict.pkl'
+# relative_path = '../data/100k3.pkl'
 # open_path = absolute_path / relative_path
 
 # with open(open_path, 'rb') as f:
@@ -12,13 +13,22 @@
 
 # print('Done')
 
-# path = Path(__file__).parent.parent / 'models' / 'ConditionalNF_12layers_10kZee_noRings_310124.pt'
+# absolute_path = Path(__file__).parent
+# relative_path = '../models/CNF_24layers_100k3Zee_noRings_1e-2_140224.pt'
+# open_path = absolute_path / relative_path
 
-# flow = torch.load(path)
+# flow = torch.load(open_path)
 
-# c = torch.Tensor([[-0.4041, -0.8285,  0.0926],[-0.4041, -0.8285,  0.0926]])
+# entry = torch.Tensor([[1.,1.,-0.5+k/50.] for k in range(101)])
 
-# print(flow.sample(c))
+# result, _jacob = flow.sample(entry)
+# entry = entry.transpose(0,1).to('cpu').detach().numpy()
+# result = result.transpose(0,1).to('cpu').detach().numpy()
+# print(entry.shape)
+# print(result.shape)
 
-if (1 >= 0.5) and (1 <= 1.5):
-    print('True')
+# n, bins, patches = plt.hist(result[3,:], 50, density=True, facecolor='g', alpha=0.75)
+# plt.show()
+
+# n, bins, patches = plt.hist(data_dict['phi'][0:100], 50, density=True, facecolor='g', alpha=0.75)
+# plt.show()
