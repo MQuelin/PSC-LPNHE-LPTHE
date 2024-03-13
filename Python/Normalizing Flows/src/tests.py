@@ -1,34 +1,22 @@
-import pickle
 from pathlib import Path
 import torch
-import matplotlib.pyplot as plt
+import numpy as np
 
-# absolute_path = Path(__file__).parent
-# relative_path = '../data/100k3.pkl'
-# open_path = absolute_path / relative_path
+from scipy.stats import multivariate_normal
 
-# with open(open_path, 'rb') as f:
-#     data_dict = pickle.load(f)
-#     print('Now loading dataset ...')
+flow = torch.load(Path(__file__) / Path('../../models/ICNF_5.pt')).to('cpu')
 
-# print('Done')
+test_batch = torch.Tensor([[1.],[2.]])
 
-# absolute_path = Path(__file__).parent
-# relative_path = '../models/CNF_24layers_100k3Zee_noRings_1e-2_140224.pt'
-# open_path = absolute_path / relative_path
+gaussian = multivariate_normal(cov=np.eye(28*28))
+dummy_variables = torch.tensor(gaussian.rvs(size = 2)).to(torch.float32)
 
-# flow = torch.load(open_path)
+output, log_jac = flow(test_batch, dummy_variables, reverse = False)
 
-# entry = torch.Tensor([[1.,1.,-0.5+k/50.] for k in range(101)])
+reversed_output, log_jac_reversed = flow(test_batch, output, reverse = True)
 
-# result, _jacob = flow.sample(entry)
-# entry = entry.transpose(0,1).to('cpu').detach().numpy()
-# result = result.transpose(0,1).to('cpu').detach().numpy()
-# print(entry.shape)
-# print(result.shape)
+print(f'Conditions: {test_batch}\nModel input: {dummy_variables}\nModel output: {output}\nReversed output: {reversed_output}\n\n')
+print(f'log_jac = {torch.exp(log_jac)}\nlog_jac_reversered = {torch.exp(log_jac_reversed)}')
 
-# n, bins, patches = plt.hist(result[3,:], 50, density=True, facecolor='g', alpha=0.75)
-# plt.show()
-
-# n, bins, patches = plt.hist(data_dict['phi'][0:100], 50, density=True, facecolor='g', alpha=0.75)
-# plt.show()
+for k in range(728):
+    print(dummy_variables[0,k]-reversed_output[0,k])

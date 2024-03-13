@@ -9,9 +9,9 @@ import matplotlib.pyplot as plt
 
 
 
-flow = ConditionalNF(512, 3, 10, [20,20,20,20])
-optimizer = torch.optim.Adam(flow.parameters(), lr=5e-4)
-data = ZeeDataset('../data/100k3.pkl')
+flow = ConditionalNF(4, 3, 10, [80,80])
+optimizer = torch.optim.Adam(flow.parameters(), lr=5e-3)
+data = ZeeDataset('../data/100k2.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 ### Dividing the data on train and test
@@ -20,19 +20,17 @@ train_len = int(percentage_train * len(data))
 data_train, data_test = torch.utils.data.random_split(data, 
                                                       [train_len, len(data)-train_len])
 
-nb_epochs = 3
+nb_epochs = 10
 batch_size = 1000
 
 dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True)
 dataloader_test = torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True)
 
-trainer = ConditionalTrainer(flow, optimizer, dataloader, dataloader_test, 3, 10, 1e-2, device)
+trainer = ConditionalTrainer(flow, optimizer, dataloader, dataloader_test, 3, 10, 0.05, device)
 
 loss_train, loss_test = trainer.train(nb_epochs)
 
-trainer.save_at(save_path= "../models", save_name="CNF_24layers_20_20_20_20_shape_100k3Zee_0.05_060324.pt")
-
-print(len(loss_train))
+trainer.save_at(save_path= "../models", save_name="CNF2_32lyrs_2x80shape_100k2Zee_0.05.pt")
 
 plt.plot(range(len(loss_train)), loss_train)
 plt.show()

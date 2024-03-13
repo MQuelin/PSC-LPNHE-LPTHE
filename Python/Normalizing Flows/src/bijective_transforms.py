@@ -225,6 +225,11 @@ class ConditionalAffineCouplingLayer(nn.Module):
         self.s1 = s1
         self.s2 = s2
 
+        self.permutation_tensor = torch.LongTensor(permutation([i for i in range(output_dim)]))
+        self.reverse_permutation_tensor = torch.LongTensor([0 for i in range(output_dim)])
+        for i in range(output_dim):
+            self.reverse_permutation_tensor[self.permutation_tensor[i]] = i
+
 
     def forward(self, c, z, reverse="false"):
         """
@@ -241,6 +246,9 @@ class ConditionalAffineCouplingLayer(nn.Module):
         data_dim = z.shape[-1]
 
         if not reverse:
+
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            z = z[:,self.permutation_tensor]
 
             #Split tensor
             (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
@@ -275,5 +283,8 @@ class ConditionalAffineCouplingLayer(nn.Module):
             z = torch.concat((z1,z2), dim=1)
 
             log_det = - scaling_vector_1.sum(1) - scaling_vector_2.sum(1)
+
+            # Permute Tensor acording to the reverse permutation describded in the permutation tensor
+            z = z[:,self.reverse_permutation_tensor]
 
             return z, log_det

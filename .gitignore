@@ -1,4 +1,5 @@
 /Python/Normalizing*Flows/models/parameter_testing/test_*/*
-!/Python/Normalizing*Flows/data/models/parameter_testing/test_*/test_results.txt
-test.md
+!/Python/Normalizing*Flows/models/parameter_testing/test_*/test_results.txt
+/Python/Normalizing*Flows/models/ICNF*
 /Python/Normalizing*Flows/models/CNF*
+/Python/Normalizing*Flows/data/MNIST
