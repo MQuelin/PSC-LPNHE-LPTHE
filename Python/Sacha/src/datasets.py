@@ -1,14 +1,10 @@
 import pickle
-import torch
-from torch.utils.data import Dataset, TensorDataset
-from torch.nn.functional import normalize
 from pathlib import Path
-from numpy import array as np_array
-from numpy import float32 as np_float32
+import numpy as np
 
 #Sanitize Inputs when loading instead of simply commenting out
 
-class ZeeDataset(Dataset):
+class ZeeDataset():
 
     def __init__(self, relative_path='../data/data_dict.pkl') -> None:
         """
@@ -40,15 +36,15 @@ class ZeeDataset(Dataset):
         # x.append(data_dict['weta2']) causes nan to appear when normalized, reason unknown as of now, commented out
         x.append(data_dict['f1'])
         x.append(data_dict['f3'])
-        
-        self.inputs = torch.tensor([z1,z2,z3]).transpose(0,1)
-        self.outputs = torch.tensor([xi for xi in x]).transpose(0,1)
+
+        self.inputs = np.array([z1,z2,z3]).T
+        self.outputs = np.array([xi for xi in x]).T
 
         #Normalization
-        self._in_mean = torch.mean(self.inputs, dim=0, keepdim = True)
-        self._in_std = torch.std(self.inputs, dim=0, keepdim = True)
-        self._out_mean = torch.mean(self.outputs, dim=0, keepdim = True)
-        self._out_std = torch.std(self.outputs, dim=0, keepdim = True)
+        self._in_mean = np.mean(self.inputs, dim=0, keepdim = True)
+        self._in_std = np.std(self.inputs, dim=0, keepdim = True)
+        self._out_mean = np.mean(self.outputs, dim=0, keepdim = True)
+        self._out_std = np.std(self.outputs, dim=0, keepdim = True)
 
         self.inputs = (self.inputs - self._in_mean) / self._in_std
         self.outputs = (self.outputs - self._out_mean) / self._out_std
