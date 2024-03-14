@@ -1,6 +1,7 @@
 import pickle
 from pathlib import Path
 import numpy as np
+import torch
 
 #Sanitize Inputs when loading instead of simply commenting out
 
@@ -25,26 +26,26 @@ class ZeeDataset():
         z3 = data_dict['phi_truth']
 
         x= []
-        x.append(data_dict['e'])
+        #x.append(data_dict['e'])
         x.append(data_dict['et'])
         x.append(data_dict['eta'])
         x.append(data_dict['phi'])
-        x.append(data_dict['reta'])
-        x.append(data_dict['rphi'])
-        x.append(data_dict['rhad'])
-        x.append(data_dict['eratio'])
+        #x.append(data_dict['reta'])
+        #x.append(data_dict['rphi'])
+        #x.append(data_dict['rhad'])
+        #x.append(data_dict['eratio'])
         # x.append(data_dict['weta2']) causes nan to appear when normalized, reason unknown as of now, commented out
-        x.append(data_dict['f1'])
-        x.append(data_dict['f3'])
+        #x.append(data_dict['f1'])
+        #x.append(data_dict['f3'])
 
-        self.inputs = np.array([z1,z2,z3]).T
-        self.outputs = np.array([xi for xi in x]).T
+        self.inputs = torch.tensor([z1,z2,z3]).transpose(0,1)
+        self.outputs = torch.tensor([xi for xi in x]).transpose(0,1)
 
         #Normalization
-        self._in_mean = np.mean(self.inputs, dim=0, keepdim = True)
-        self._in_std = np.std(self.inputs, dim=0, keepdim = True)
-        self._out_mean = np.mean(self.outputs, dim=0, keepdim = True)
-        self._out_std = np.std(self.outputs, dim=0, keepdim = True)
+        self._in_mean = torch.mean(self.inputs, dim=0, keepdim = True)
+        self._in_std = torch.std(self.inputs, dim=0, keepdim = True)
+        self._out_mean = torch.mean(self.outputs, dim=0, keepdim = True)
+        self._out_std = torch.std(self.outputs, dim=0, keepdim = True)
 
         self.inputs = (self.inputs - self._in_mean) / self._in_std
         self.outputs = (self.outputs - self._out_mean) / self._out_std
