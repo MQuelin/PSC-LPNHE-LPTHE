@@ -217,7 +217,7 @@ class MAF_ConditionalTrainer:
             
             for batch, sample in enumerate(self.dataloader_test):
                 self.flow.eval()
-                with torch.inference_mode():
+                with torch.no_grad():
                     c = sample['input'].to(self.device)
                     x = sample['output'].to(self.device)
                     z, log_jac_det = self.flow(c, x)
@@ -225,7 +225,7 @@ class MAF_ConditionalTrainer:
                     c_estimate, dummy_variable = torch.split(z, (self.input_dim, self.output_dim-self.input_dim), dim = 1)
 
                     # Evaluate test loss
-                    loss =  (0.5*torch.sum(dummy_variable**2, 1) + 0*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
+                    loss =  (0.5*torch.sum(dummy_variable**2, 1) + 0.1*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
                     testing_loss.append(loss.item())
 
         return training_loss, testing_loss
