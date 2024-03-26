@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 
 
-flow = ConditionaMaskedAF(4, 3, 10, [80,80])
+flow = ConditionaMaskedAF(4, 3, 10, [50,50])
 optimizer = torch.optim.Adam(flow.parameters(), lr=5e-3)
 data = ZeeDataset('../data/100k2.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"

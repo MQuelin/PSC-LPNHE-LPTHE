@@ -207,8 +207,7 @@ class ConditionaMaskedAF(nn.Module):
         
     def forward(self, c, z):
         log_jacobians = 0
-        for k in range(0, 3*self.flow_length):
-            print(self.layers[k])
+        for k in range(0, 3*self.flow_length,3):
             z, log_jacobian_A = self.layers[k](c, z, False)               
             z, log_jacobian_M = self.layers[k+1](z)
             z, log_jacobian_B = self.layers[k+2](z)
