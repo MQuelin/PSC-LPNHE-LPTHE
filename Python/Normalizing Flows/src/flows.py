@@ -217,9 +217,9 @@ class ConditionaMaskedAF(nn.Module):
                 log_jacobians += log_jacobian_B
         else:
             for k in range(-3,-self.flow_length-1,-3):
-                z, log_jacobian_A = self.layers[k](c, z, reverse)
-                z, log_jacobian_M = self.layers[k-1](z)
-                z, log_jacobian_B = self.layers[k-2](z)
+                z, log_jacobian_A = self.layers[k](c, z, reverse)               
+                z, log_jacobian_B = self.layers[k-1](z)
+                z, log_jacobian_M = self.layers[k-2](z)
                 log_jacobians += log_jacobian_A
                 log_jacobians += log_jacobian_M
                 log_jacobians += log_jacobian_B
