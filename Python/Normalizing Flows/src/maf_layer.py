@@ -16,12 +16,12 @@ class MAFLayer(nn.Module):
         out = self.made(x.float())
         mu, logp = torch.chunk(out, 2, dim=1)
         u = (x - mu) * torch.exp(0.5 * logp)
-        u = u.flip(dims=(1,)) if self.reverse else u
+        #u = u.flip(dims=(1,)) if self.reverse else u
         log_det = 0.5 * torch.sum(logp, dim=1)
         return u, log_det
 
     def backward(self, u: Tensor) -> Tuple[Tensor, Tensor]:
-        u = u.flip(dims=(1,)) if self.reverse else u
+        #u = u.flip(dims=(1,)) if self.reverse else u
         x = torch.zeros_like(u)
         for dim in range(self.dim):
             out = self.made(x)
