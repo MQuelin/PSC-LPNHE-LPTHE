@@ -2,7 +2,7 @@ import torch
 
 from flows import ConditionaMaskedAF
 from datasets import ZeeDataset
-from train import ConditionalTrainer
+from train import MAF_ConditionalTrainer
 
 
 import matplotlib.pyplot as plt
@@ -26,7 +26,7 @@ batch_size = 1000
 dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True)
 dataloader_test = torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True)
 
-trainer = ConditionalTrainer(flow, optimizer, dataloader, dataloader_test, 3, 10, 0.05, device)
+trainer = MAF_ConditionalTrainer(flow, optimizer, dataloader, dataloader_test, 3, 10, 0.05, device)
 
 loss_train, loss_test = trainer.train(nb_epochs)
 

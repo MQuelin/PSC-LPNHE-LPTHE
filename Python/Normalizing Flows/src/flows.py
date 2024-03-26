@@ -187,7 +187,7 @@ class ConditionaMaskedAF(nn.Module):
 
         n = output_dim//2
 
-        hidden_dims = [5] #!!!!!!!!
+        hidden_dims = [10,10] #!!!!!!!!
 
         self.layers = nn.ModuleList()
         self.flow_length = flow_length
@@ -202,27 +202,19 @@ class ConditionaMaskedAF(nn.Module):
                                                                 output_dim=output_dim,
                                                                 n=n,
                                                                 m1=m1,m2=m2,s1=s1,s2=s2))
-            self.layers.append(MAFLayer(output_dim, hidden_dims, reverse=True))
+            self.layers.append(MAFLayer(output_dim, hidden_dims))
             self.layers.append(BatchNormLayer(output_dim))
         
-    def forward(self, c, z, reverse="false"):
+    def forward(self, c, z):
         log_jacobians = 0
-        if not reverse:
-            for k in range(0,3*self.flow_length-2,3):
-                z, log_jacobian_A = self.layers[k](c, z, reverse)
-                z, log_jacobian_M = self.layers[k+1](z)
-                z, log_jacobian_B = self.layers[k+2](z)
-                log_jacobians += log_jacobian_A
-                log_jacobians += log_jacobian_M
-                log_jacobians += log_jacobian_B
-        else:
-            for k in range(-3,-self.flow_length-1,-3):
-                z, log_jacobian_A = self.layers[k](c, z, reverse)               
-                z, log_jacobian_B = self.layers[k-1](z)
-                z, log_jacobian_M = self.layers[k-2](z)
-                log_jacobians += log_jacobian_A
-                log_jacobians += log_jacobian_M
-                log_jacobians += log_jacobian_B
+        for k in range(0, 3*self.flow_length):
+            print(self.layers[k])
+            z, log_jacobian_A = self.layers[k](c, z, False)               
+            z, log_jacobian_M = self.layers[k+1](z)
+            z, log_jacobian_B = self.layers[k+2](z)
+            log_jacobians += log_jacobian_A
+            log_jacobians += log_jacobian_M
+            log_jacobians += log_jacobian_B
 
         return z, log_jacobians
 

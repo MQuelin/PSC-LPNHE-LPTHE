@@ -6,11 +6,11 @@ from made import MADE
 
 
 class MAFLayer(nn.Module):
-    def __init__(self, dim: int, hidden_dims: List[int], reverse: bool):
+    def __init__(self, dim: int, hidden_dims: List[int]):#, reverse: bool):
         super(MAFLayer, self).__init__()
         self.dim = dim
         self.made = MADE(dim, hidden_dims, gaussian=True, seed=None)
-        self.reverse = reverse
+        #self.reverse = reverse
 
     def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
         out = self.made(x.float())
