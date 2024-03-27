@@ -7,6 +7,8 @@ from math import log
 from bijective_transforms import *
 from misc_transforms import *
 
+from maf_layer import MAFLayer
+from batch_norm_layer import BatchNormLayer
 
 class SimplePlanarNF(nn.Module):
     """
@@ -192,3 +194,56 @@ class ImageConditionalNF(nn.Module):
         output = torch.unsqueeze(output,1)
 
         return output
+    
+class ConditionaMaskedAF(nn.Module):
+
+    def __init__(self, flow_length, input_dim, output_dim, MLP_shape_list = [10,10], device='cuda'):
+        
+        super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.device=device
+
+        n = output_dim//2
+
+        hidden_dims = [10,10] #!!!!!!!!
+
+        self.layers = nn.ModuleList()
+        self.flow_length = flow_length
+        for k in range(flow_length):
+            shape_list_1 = [output_dim - n + input_dim] + MLP_shape_list + [n]
+            shape_list_2 = [n + input_dim] + MLP_shape_list + [output_dim - n]
+            m1 = MLP(shape_list_1)
+            m2 = MLP(shape_list_2)
+            s1 = MLP(shape_list_1)
+            s2 = MLP(shape_list_2)
+            self.layers.append(ConditionalAffineCouplingLayer(  input_dim=input_dim,
+                                                                output_dim=output_dim,
+                                                                n=n,
+                                                                m1=m1,m2=m2,s1=s1,s2=s2))
+            self.layers.append(MAFLayer(output_dim, hidden_dims))
+            self.layers.append(BatchNormLayer(output_dim))
+        
+    def forward(self, c, z):
+        log_jacobians = 0
+        for k in range(0, 3*self.flow_length,3):
+            z, log_jacobian_A = self.layers[k](c, z, False)               
+            z, log_jacobian_M = self.layers[k+1](z)
+            z, log_jacobian_B = self.layers[k+2](z)
+            log_jacobians += log_jacobian_A
+            log_jacobians += log_jacobian_M
+            log_jacobians += log_jacobian_B
+
+        return z, log_jacobians
+
+    def sample(self, c):
+
+        batch_size = c.shape[0]
+        c = c.to(self.device)
+
+        gaussian = multivariate_normal(cov=np.eye(self.output_dim-self.input_dim))
+        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device).to(torch.float32)
+
+        z = torch.concat((c,dummy_variable), dim=1)
+
+        return self.forward(c, z, reverse=False)
