@@ -68,7 +68,7 @@ class ConditionalTrainer:
     def train(self, nb_epochs):
         training_loss = []
         testing_loss = []
-        for epoch in tqdm(range(nb_epochs), desc='Performing training:\n'):
+        for epoch in tqdm(range(nb_epochs), desc='Performing training:'):
             for batch, sample in enumerate(self.dataloader_train):
                 # Propagate the samples backwards through the flow
                 self.flow.train()

@@ -2,6 +2,7 @@ import torch.nn as nn
 
 import numpy as np
 from scipy.stats import multivariate_normal
+from math import log
 
 from bijective_transforms import *
 from misc_transforms import *
@@ -73,13 +74,22 @@ class ConditionalNF(nn.Module):
 
         self.layers = nn.ModuleList()
         self.flow_length = flow_length
+        
+        # To avoid creating a model which scales it's inputs too violently we limit the outputs of the s and m neural networks
+        # Details for the formulas of these coefficients is given in the .md file 'flow_normalizing_factor.md' located in /Normalizing flows/doc
+        # M is the hardcoded upperbound such that : ||flow(x)|| < M||x||
+        # (This inequality might be violated for ||x|| too great, which should be unlikely as the flow deals with normalized distributions)
+        M=1e9
+        s_scaling_factor = 1 / self.flow_length * log((M/(self.flow_length+1)))
+        m_scaling_factor = 1
+
         for k in range(flow_length):
             shape_list_1 = [output_dim - n + input_dim] + MLP_shape_list + [n]
             shape_list_2 = [n + input_dim] + MLP_shape_list + [output_dim - n]
-            m1 = MLP(shape_list_1)
-            m2 = MLP(shape_list_2)
-            s1 = MLP(shape_list_1)
-            s2 = MLP(shape_list_2)
+            m1 = MLP(shape_list_1, activation_layer=nn.Hardtanh())#, scaling_factor=m_scaling_factor)
+            m2 = MLP(shape_list_2, activation_layer=nn.Hardtanh())#, scaling_factor=m_scaling_factor)
+            s1 = MLP(shape_list_1, activation_layer=nn.Hardtanh())#, scaling_factor=s_scaling_factor)
+            s2 = MLP(shape_list_2, activation_layer=nn.Hardtanh())#, scaling_factor=s_scaling_factor)
             self.layers.append(ConditionalAffineCouplingLayer(  input_dim=input_dim,
                                                                 output_dim=output_dim,
                                                                 n=n,
@@ -127,13 +137,22 @@ class ImageConditionalNF(nn.Module):
 
         self.layers = nn.ModuleList()
         self.flow_length = flow_length
+
+        # To avoid creating a model which scales it's inputs too violently we limit the outputs of the s and m neural networks
+        # Details for the formulas of these coefficients is given in the .md file 'flow_normalizing_factor.md' located in /Normalizing flows/doc
+        # M is the hardcoded upperbound such that : ||flow(x)|| < M||x||
+        # (This inequality might be violated for ||x|| too great, which should be unlikely as the flow deals with normalized distributions)
+        M=1e9
+        s_scaling_factor = 1 / self.flow_length * log((M/(self.flow_length+1)))
+        m_scaling_factor = 1
+
         for k in range(flow_length):
             shape_list_1 = [self.output_dim - n + input_dim] + MLP_shape_list + [n]
             shape_list_2 = [n + input_dim] + MLP_shape_list + [self.output_dim - n]
-            m1 = MLP(shape_list_1)
-            m2 = MLP(shape_list_2)
-            s1 = MLP(shape_list_1)
-            s2 = MLP(shape_list_2)
+            m1 = MLP(shape_list_1, activation_layer=nn.Tanh()) #, scaling_factor=m_scaling_factor)
+            m2 = MLP(shape_list_2, activation_layer=nn.Tanh()) #, scaling_factor=m_scaling_factor)
+            s1 = MLP(shape_list_1, activation_layer=nn.Tanh()) #, scaling_factor=s_scaling_factor)
+            s2 = MLP(shape_list_2, activation_layer=nn.Tanh()) #, scaling_factor=s_scaling_factor)
             self.layers.append(ConditionalAffineCouplingLayer(  input_dim=input_dim,
                                                                 output_dim=self.output_dim,
                                                                 n=n,
@@ -161,7 +180,7 @@ class ImageConditionalNF(nn.Module):
         c = c.to(self.device)
 
         gaussian = multivariate_normal(cov=np.eye(self.output_dim-self.input_dim))
-        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device).to(torch.float32)
+        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device)
 
         z = torch.concat((c,dummy_variable), dim=1)
 
