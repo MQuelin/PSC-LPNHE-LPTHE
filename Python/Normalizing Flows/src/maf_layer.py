@@ -2,31 +2,33 @@ from typing import List, Tuple
 import torch
 import torch.nn as nn
 from torch import Tensor
-from made import MADE
 
 
 class MAFLayer(nn.Module):
-    def __init__(self, dim: int, hidden_dims: List[int]):#, reverse: bool):
+    def __init__(self, output_dim, input_dim):
         super(MAFLayer, self).__init__()
-        self.dim = dim
-        self.made = MADE(dim, hidden_dims, gaussian=True, seed=None)
-        #self.reverse = reverse
+        self.output_dim = output_dim
+        self.input_dim = input_dim
+        self.pa = nn.ParameterList([nn.Parameter(torch.zeros(i+input_dim)) for i in range(output_dim)])
+        self.pb = nn.ParameterList([nn.Parameter(torch.zeros(i+input_dim)) for i in range(output_dim)])
+    
+    def forward(self, X, c, reverse_f=False):
+        x = torch.cat((c,X),dim=1).T
+        z = x.clone().detach()
+        log_det = 0
 
-    def forward(self, x: Tensor) -> Tuple[Tensor, Tensor]:
-        out = self.made(x.float())
-        mu, logp = torch.chunk(out, 2, dim=1)
-        u = (x - mu) * torch.exp(0.5 * logp)
-        #u = u.flip(dims=(1,)) if self.reverse else u
-        log_det = 0.5 * torch.sum(logp, dim=1)
-        return u, log_det
+        if not reverse_f:
+            for i in range(self.output_dim):
+                a = (self.pa[i] @ x[:i+self.input_dim]).T
+                b = (self.pb[i] @ x[:i+self.input_dim]).T
+                z[i+self.input_dim] = x[i+self.input_dim] * torch.exp(a) + b
+                log_det += a
+        else:
+            for i in range(self.output_dim):
+                a = (self.pa[i] @ z[:i+self.input_dim]).T
+                b = (self.pb[i] @ z[:i+self.input_dim]).T
+                z[i+self.input_dim] = (x[i+self.input_dim] - b) / torch.exp(a)
+                log_det -= a
 
-    def backward(self, u: Tensor) -> Tuple[Tensor, Tensor]:
-        #u = u.flip(dims=(1,)) if self.reverse else u
-        x = torch.zeros_like(u)
-        for dim in range(self.dim):
-            out = self.made(x)
-            mu, logp = torch.chunk(out, 2, dim=1)
-            mod_logp = torch.clamp(-0.5 * logp, max=10)
-            x[:, dim] = mu[:, dim] + u[:, dim] * torch.exp(mod_logp[:, dim])
-        log_det = torch.sum(mod_logp, axis=1)
-        return x, log_det
+        z = z[self.input_dim:].T
+        return z, log_det
