@@ -11,6 +11,8 @@ import matplotlib.pyplot as plt
 
 from pathlib import Path
 
+torch.set_default_dtype(torch.float64)
+
 # Device selection
 device = torch.device('cuda')
 
@@ -19,10 +21,10 @@ seed = 2
 torch.manual_seed(seed)
 
 # Training epochs
-n_epochs = 30
+n_epochs = 25
 
 # Training batch size
-batch_size = 512
+batch_size = 1024
 
 # definition of transform func that will convert images to vectors
 transform = tv.transforms.ToTensor()
@@ -76,15 +78,15 @@ test_loader = DataLoader(test_set,
                           batch_size=batch_size,
                           shuffle=False)
 
-flow = ImageConditionalNF(16, 1, 28, MLP_shape_list=[80,80,80,80])
+flow = ImageConditionalNF(24, 1, 28, MLP_shape_list=[40,40])
 optimizer = torch.optim.Adam(flow.parameters(), lr=5e-4)
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-trainer = MNISTImageTrainer(flow, optimizer, train_loader, test_loader, 1, 28*28, 0.05, device)
+trainer = MNISTImageTrainer(flow, optimizer, train_loader, test_loader, 1, 28*28, 0.01, device)
 
 loss_train, loss_test = trainer.train(n_epochs)
 
-trainer.save_at(save_path= "../models", save_name="ICNF_5.pt")
+trainer.save_at(save_path= "../models", save_name="ICNF_9.pt")
 
 plt.plot(range(len(loss_train)), torch.log(torch.Tensor(loss_train)))
 plt.show()

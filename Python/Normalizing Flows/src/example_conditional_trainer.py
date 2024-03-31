@@ -7,9 +7,9 @@ from train import ConditionalTrainer
 
 import matplotlib.pyplot as plt
 
+torch.set_default_dtype(torch.float64)
 
-
-flow = ConditionalNF(4, 3, 10, [80,80])
+flow = ConditionalNF(8, 3, 10, [20,20])
 optimizer = torch.optim.Adam(flow.parameters(), lr=5e-3)
 data = ZeeDataset('../data/100k2.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -20,7 +20,7 @@ train_len = int(percentage_train * len(data))
 data_train, data_test = torch.utils.data.random_split(data, 
                                                       [train_len, len(data)-train_len])
 
-nb_epochs = 10
+nb_epochs = 5 #last around -1.5
 batch_size = 1000
 
 dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True)
@@ -30,11 +30,11 @@ trainer = ConditionalTrainer(flow, optimizer, dataloader, dataloader_test, 3, 10
 
 loss_train, loss_test = trainer.train(nb_epochs)
 
-trainer.save_at(save_path= "../models", save_name="CNF2_32lyrs_2x80shape_100k2Zee_0.05.pt")
+trainer.save_at(save_path= "../models", save_name="CNF2_reverse_test.pt")
 
-plt.plot(range(len(loss_train)), loss_train)
+plt.plot(range(len(loss_train)), torch.log(torch.Tensor(loss_train)))
 plt.show()
-plt.plot(range(len(loss_test)), loss_test)
+plt.plot(range(len(loss_test)), torch.log(torch.Tensor(loss_test)))
 plt.show()
 
 #print(loss_train)
