@@ -39,19 +39,25 @@ class SimpleAdditiveNF(nn.Module):
 
         n = data_dim//2
 
-        self.layers = nn.Sequential()
+        self.layers = nn.ModuleList()
         for k in range(flow_length):
-            self.layers.add_module(f'Module_{k}', AdditiveCouplingLayer(data_dim,
+            self.layers.append(f'Module_{k}', AdditiveCouplingLayer(data_dim,
                                                                         n=n,
                                                                         m=MLP([n, 10, 10, data_dim - n]),
                                                                         s=MLP([n, 10, 10, data_dim - n])
                                                                         ))
-        
+        self.flow_length = flow_length
+    
     def forward(self, z, reverse="false"):
         log_jacobians = 0
-        for layer in self.layers:
-            z, log_jacobian = layer(z, reverse)
-            log_jacobians += log_jacobian
+        if not reverse:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[k](z, reverse)
+                log_jacobians += log_jacobian
+        else:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[-1-k](z, reverse)
+                log_jacobians += log_jacobian            
         return z, log_jacobians
 
 class ConditionalNF(nn.Module):
@@ -247,3 +253,40 @@ class ConditionaMaskedAF(nn.Module):
         z = torch.concat((c,dummy_variable), dim=1)
 
         return self.forward(c, z, reverse=False)
+    
+class SimpleIAF(nn.Module):
+    def __init__(self, flow_length, dim, device='cuda'):
+        super().__init__()
+        
+        self.flow_length = flow_length
+        self.dim = dim
+        self.device = device
+
+        self.layers = nn.ModuleList()
+        for k in range(flow_length):
+            self.layers.append(AutoRegressiveLayer(dim))
+    
+    def forward(self, z, reverse="false"):
+        log_jacobians = 0
+        if not reverse:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[k](z, reverse)
+                log_jacobians += log_jacobian
+        else:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[-1-k](z, reverse)
+                log_jacobians += log_jacobian            
+        return z, log_jacobians
+
+    def sample(self, n):
+        """
+        Takes in an int n representing the desired amout of samples
+        Returns a tensor of shape [n,d] where d is the dimension of the output vectors of the model
+        """
+
+        z = torch.normal(std = torch.ones(n))
+
+        samples, _log_dets = self.forward(z,reverse=False)
+
+        # We detach the output as we should not require gradients after this step
+        return samples.detach()

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from numpy.random import permutation
+from misc_transforms import MLP
 
 """
 File containing different classes used as bijective transforms that can be composed together to create normalizing flows
@@ -288,3 +289,97 @@ class ConditionalAffineCouplingLayer(nn.Module):
             z = z[:,self.reverse_permutation_tensor]
 
             return z, log_det
+
+class AutoRegressiveLayer(nn.Module):
+    """
+    Module used to apply an auto regressive transform
+    ------------
+    Forward mapping process with scaling and conditioning:
+
+        z = (z1, ..., zn)
+        xi = zi * si(z1,z2,...,z_i-1) + mi(z1,z2,...,z_i-1)
+        log(det(jacobian)) = sum(si)
+
+        this process is done in parallel and is the choosen sampling process:
+    
+    Reverse mapping process :
+
+        x = (x1, ...,xn)
+        zi = (xi - mi(z1,z2,...,z_i-1)) / si(z1,z2,...,z_i-1)
+        log(det(jacobian)) = -sum(si)
+
+        this process must be done sequentially and is used for training
+                
+    see for reference:  https://lilianweng.github.io/posts/2018-10-13-flow-models/
+                        https://arxiv.org/pdf/1606.04934.pdf
+    """
+
+    def __init__(self, dim: int):
+        """
+        Arguments:
+            - dim: int: dimension of the vectors that will go through the layer/flow
+
+        """
+        super().__init__()
+        self.dim = dim
+        self.s_list= nn.ParameterList()
+        self.m_list= nn.ParameterList()
+        for k in range(dim-1):
+            self.s_list.append(MLP([k+1,1],activation_layer=nn.Tanh()))
+            self.m_list.append(MLP([k+1,1],activation_layer=nn.Tanh()))
+        
+        # As the first transforms are not linear per se as they take in no input we declare them as a scalars here
+        self.s0 = nn.Parameter(torch.zeros(1))
+        self.m0 = nn.Parameter(torch.zeros(1))
+
+        self.permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
+        self.reverse_permutation_tensor = torch.LongTensor([0 for i in range(dim)])
+        for i in range(dim):
+            self.reverse_permutation_tensor[self.permutation_tensor[i]] = i
+        
+    def forward(self, z, reverse="false"):
+        x = torch.zeros_like(z)
+        log_jac_det = torch.zeros_like(z[::,0])
+
+        # IMPORTANT TODO
+        # Render the forward process parallel and not sequential to acheive better computational efficiency
+        if not reverse:
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            z = z[:,self.permutation_tensor]
+            for i in range(self.dim):
+
+                # xi = zi * si(z1,z2,...,z_i-1) + mi(z1,z2,...,z_i-1)
+                if i==0:
+                    scaling_vector = self.s0
+                    x[::,i] = z[::,i] * torch.exp(scaling_vector) + self.m0
+                    log_jac_det += scaling_vector
+
+                else :
+                    s = self.s_list[i-1]
+                    m = self.m_list[i-1]
+                    scaling_vector = s(z[::,0:i])
+                    x[::,i] = z[::,i] * torch.exp(scaling_vector).squeeze(1) + m(z[::,0:i]).squeeze(1)
+
+                    log_jac_det += scaling_vector.squeeze(1)
+
+        else:
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            z = z[:,self.reverse_permutation_tensor]
+            for i in range(self.dim):
+                # zi = (xi - mi(z1,z2,...,z_i-1)) / si(z1,z2,...,z_i-1)
+                # To avoid changing the arguments name we simply replace x by z in the above formula
+                if i==0:
+                    scaling_vector = self.s0
+                    x[::,i] = (z[::,i] - self.m0) * torch.exp(-scaling_vector)
+                    log_jac_det += -scaling_vector
+                
+                else :
+                    s = self.s_list[i-1]
+                    m = self.m_list[i-1]
+                    scaling_vector = s(x[::,0:i])
+                    x[::,i] = (z[::,i] - m(z[::,0:i]).squeeze(1)) * torch.exp(-scaling_vector).squeeze(1)
+
+                    log_jac_det += -scaling_vector.squeeze(1)
+
+        
+        return x, log_jac_det

@@ -4,39 +4,48 @@ from tqdm import tqdm
 from pathlib import Path
 
 class Trainer:
-
     """
     Tainer used to train a model to transtion from a normal distribution to a target distribution represented by a set of samples.
     """
 
-    def __init__(self, flow, optimizer, dataloader, data_dim, device) -> None:
+    def __init__(self, flow, optimizer, dataloader_train, dataloader_test, data_dim, device) -> None:
         self.flow = flow
         self.flow.to(device)
         self.optimizer = optimizer
-        self.dataloader = dataloader
+        self.dataloader_train = dataloader_train
+        self.dataloader_test = dataloader_test
         self.data_dim = data_dim
         self.device = device
-        
-
-
+    
     def train(self, nb_epochs):
         training_loss = []
-        for epoch in tqdm(range(nb_epochs)):
-
-            for batch, sample in enumerate(self.dataloader):
+        testing_loss = []
+        for epoch in tqdm(range(nb_epochs), desc='Performing training:'):
+            for batch, sample in enumerate(self.dataloader_train):
                 # Propagate the samples backwards through the flow
+                self.flow.train()
                 x = sample['output'].to(self.device)
                 z, log_jac_det = self.flow(x, reverse=True)
 
-                # Evaluate loss
+                # Evaluate train loss
                 loss =  (0.5*torch.sum(z**2, 1) - log_jac_det).mean() / self.data_dim
 
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
                 training_loss.append(loss.item())
+            
+            for batch, sample in enumerate(self.dataloader_test):
+                self.flow.eval()
+                with torch.inference_mode():
+                    x = sample['output'].to(self.device)
+                    z, log_jac_det = self.flow(x, reverse=True)
 
-        return training_loss
+                    # Evaluate test loss
+                    loss =  (0.5*torch.sum(z**2, 1) - log_jac_det).mean() / self.data_dim
+                    testing_loss.append(loss.item())
+
+        return training_loss, testing_loss
     
     def save_at(self, save_path = '../models', save_name = 'NFModel.pt') :
         absolute_path = Path(__file__).parent

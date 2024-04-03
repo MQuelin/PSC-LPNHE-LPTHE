@@ -1,22 +1,36 @@
 from pathlib import Path
 import torch
-import numpy as np
+import matplotlib.pyplot as plt
+from datasets import ZeeDataset
 
-from scipy.stats import multivariate_normal
+# flow = torch.load(Path(__file__) / Path('../../models/CNF2_test_3.pt')).to('cuda')
 
-flow = torch.load(Path(__file__) / Path('../../models/CNF2_reverse_test.pt')).to('cpu')
+# c = torch.Tensor([[-1+k/125,1.0,1.0] for k in range(250)]).to('cuda').to(torch.float64)
 
-test_batch = torch.Tensor([[1.,1.,1.],[0.5,0.5,0.5]])
+# samples, log_jac = flow.sample(c)
 
-gaussian = multivariate_normal(cov=np.eye(10))
-dummy_variables = torch.tensor(gaussian.rvs(size = 2))
+# plt.scatter(c[::,0].to('cpu'), samples[::,0].detach().to('cpu'))
+# plt.show()
 
-output, log_jac = flow(test_batch, dummy_variables, reverse = False)
+# data = ZeeDataset()
 
-reversed_output, log_jac_reversed = flow(test_batch, output, reverse = True)
+# e = []
+# e_truth = []
 
-print(f'Conditions: {test_batch}\nModel input: {dummy_variables}\nModel output: {output}\nReversed output: {reversed_output}\n\n')
-print(f'log_jac + log_jac_reversered = {log_jac+log_jac_reversed}')
+# for k in range(100):
+#     sample = data[k]
+#     e_truth.append(sample['input'][0])
+#     e.append(sample['output'][0])
 
-for k in range(10):
-    print(dummy_variables[0,k]-reversed_output[0,k])
+# plt.scatter(e_truth,e)
+# plt.show()
+
+a = torch.rand([10,3])
+b = torch.nn.Parameter(torch.ones(1))
+
+print(a)
+print(a[::,1])
+
+a[::,0] = torch.rand(10)
+
+print(a)
