@@ -2,6 +2,8 @@ import torch
 from tqdm import tqdm
 
 from pathlib import Path
+from math import pi
+import numpy as np
 
 class Trainer:
     """
@@ -77,7 +79,7 @@ class ConditionalTrainer:
     def train(self, nb_epochs):
         training_loss = []
         testing_loss = []
-        for epoch in tqdm(range(nb_epochs), desc='Performing training:'):
+        for epoch in tqdm(range(nb_epochs), desc='Performing training:\n'):
             for batch, sample in enumerate(self.dataloader_train):
                 # Propagate the samples backwards through the flow
                 self.flow.train()
@@ -206,6 +208,7 @@ class MAF_ConditionalTrainer:
     def train(self, nb_epochs):
         training_loss = []
         testing_loss = []
+
         for epoch in tqdm(range(nb_epochs), desc='Performing training:\n'):
             for batch, sample in enumerate(self.dataloader_train):
                 # Propagate the samples backwards through the flow
@@ -214,10 +217,9 @@ class MAF_ConditionalTrainer:
                 x = sample['output'].to(self.device)
                 z, log_jac_det = self.flow(c, x)
 
-                c_estimate, dummy_variable = torch.split(z, (self.input_dim, self.output_dim-self.input_dim), dim = 1)
-
                 # Evaluate train loss
-                loss =  (0.5*torch.sum(dummy_variable**2, 1) + 0.1/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
+                loss =  (0.5*torch.sum(z**2, 1) - log_jac_det).mean() / self.output_dim
+                loss += 0.5 * np.log(2 * pi)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -230,11 +232,11 @@ class MAF_ConditionalTrainer:
                     c = sample['input'].to(self.device)
                     x = sample['output'].to(self.device)
                     z, log_jac_det = self.flow(c, x)
-
-                    c_estimate, dummy_variable = torch.split(z, (self.input_dim, self.output_dim-self.input_dim), dim = 1)
-
+                    
                     # Evaluate test loss
-                    loss =  (0.5*torch.sum(dummy_variable**2, 1) + 0.1*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
+                    loss =  (0.5*torch.sum(z**2, 1) - log_jac_det).mean() / self.output_dim
+                    loss += 0.5 * np.log(2 * pi)
+
                     testing_loss.append(loss.item())
 
         return training_loss, testing_loss
