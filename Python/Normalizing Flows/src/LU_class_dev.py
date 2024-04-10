@@ -23,19 +23,19 @@ class LULayer(nn.Module):
         self.D = torch.diag(torch.exp(self.du))
 
         self.u = nn.Parameter(torch.diag(torch.ones(dim, dim)) + torch.triu(torch.randn(dim,  dim),1))
-        for ligne in range(dim) :
-            for colonne in range(dim):
-                if ligne <= colonne :
-                    self.u[ligne, colonne].requires_grad = False
+        hu = self.u.register_hook(lambda grad: grad*torch.triu(torch.ones(dim,dim)))
 
         self.l = nn.Parameter(torch.diag(torch.ones(dim, dim)) + torch.tril(torch.randn(dim, dim),1))
+        hl = self.l.register_hook(lambda grad: grad*torch.tril(torch.ones(dim,dim)))
+        """
         for ligne in range(dim) :
             for colonne in range(dim):
                 if ligne >= colonne :
                     self.l[ligne, colonne].requires_grad = False
 
-        permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
+        """
 
+        permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
         p_matrix = torch.zeros(dim, dim)
         for i, p in enumerate(permutation_tensor):
             p_matrix[i, p] = 1
@@ -45,8 +45,9 @@ class LULayer(nn.Module):
     
     def compose_w(p, l, u):
         return torch.mm(torch.mm(p, l), u)
+    
   
-    def forward(self, x, reverse="false"):
+    def forward(self, x, reverse=False):
         if not reverse :
             w = self.p@self.l@self.u
             #y = torch.mm(x, w)
