@@ -19,36 +19,28 @@ class LULayer(nn.Module):
         p, l, u = torch.linalg.lu(w)
         """
 
-        du = torch.zeros(dim)
-        nn.Parameter(du)
-        D = torch.diag(torch.exp(du))
+        self.du = nn.Parameter(torch.zeros(dim))
+        self.D = torch.diag(torch.exp(self.du))
 
-        u = torch.triu(torch.randn(dim,  dim),1)
-        u += torch.diag(torch.ones(dim, dim))
-        nn.Parameter(u)
+        self.u = nn.Parameter(torch.diag(torch.ones(dim, dim)) + torch.triu(torch.randn(dim,  dim),1))
         for ligne in range(dim) :
             for colonne in range(dim):
                 if ligne <= colonne :
-                    u[ligne, colonne].requires_grad = False
+                    self.u[ligne, colonne].requires_grad = False
 
-        l = torch.tril(torch.randn(dim, dim),1)
-        l += torch.diag(torch.ones(dim, dim))
-        nn.Parameter(l)
+        self.l = nn.Parameter(torch.diag(torch.ones(dim, dim)) + torch.tril(torch.randn(dim, dim),1))
         for ligne in range(dim) :
             for colonne in range(dim):
                 if ligne >= colonne :
-                    l[ligne, colonne].requires_grad = False
+                    self.l[ligne, colonne].requires_grad = False
 
         permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
 
         p_matrix = torch.zeros(dim, dim)
         for i, p in enumerate(permutation_tensor):
             p_matrix[i, p] = 1
-
         self.p = p_matrix
-        self.l = l
-        self.u = u
-        self.D = D
+
         self.lu_decomposed = True
     
     def compose_w(p, l, u):
