@@ -9,11 +9,6 @@ class LULayer(nn.Module):
 
         self.dim = dim
 
-        # w = special_ortho_group.rvs(dim)
-        # print(w)
-        # w = np.random.rand(output_dim, input_dim)
-
-
         """
         w = torch.from_numpy(w)
         p, l, u = torch.linalg.lu(w)
@@ -34,30 +29,13 @@ class LULayer(nn.Module):
             p_matrix[i, p] = 1
         self.p = p_matrix
 
-        self.lu_decomposed = True
-    
-    def compose_w(p, l, u):
-        return torch.mm(torch.mm(p, l), u)
     
   
     def forward(self, x, reverse=False):
-        if not reverse :
-            w = self.p@self.l@self.u
-            #y = torch.mm(x, w)
+        w = self.p@self.l@self.u@self.D
+        if not reverse : 
             y = (w @ x.T).T
-            return y, torch.log(torch.abs(torch.det(self.u)))
+            return y, torch.sum(self.du)
         else :
-            return self.invert(x)
-    
-    def invert(self, y):
-        p_invert = torch.linalg.inv(self.p)
-        u_invert = torch.linalg.inv(self.u)
-        l_invert = torch.linalg.inv(self.l)
-
-        matrix = u_invert@l_invert@p_invert
-
-        x = matrix@y
-        log_det = torch.log(
-                torch.abs(torch.det(u_invert)))
-
-        return x, log_det.expand(x.shape[0])
+            y = (torch.linalg.inv(w) @ x.T).T
+            return y, -torch.sum(self.du)
