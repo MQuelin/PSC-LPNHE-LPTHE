@@ -5,7 +5,7 @@ from scipy.stats import multivariate_normal
 
 from bijective_transforms import *
 from misc_transforms import *
-from LU_class_dev import TestLULayer
+from LU_class_dev import LULayer
 
 from maf_layer import MAFLayer
 
@@ -263,7 +263,7 @@ class TestLULayer(nn.Module):
         self.layers = nn.ModuleList()
 
         for k in range(flow_length):
-            self.layers.append(TestLULayer(dim))
+            self.layers.append(LULayer(dim))
 
     def forward(self, z):
         log_jacobians = 0

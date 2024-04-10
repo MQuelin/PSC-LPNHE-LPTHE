@@ -3,7 +3,7 @@ from torch import nn
 from numpy.random import permutation
 import numpy as np
 
-class TestLULayer(nn.Module):
+class LULayer(nn.Module):
     def __init__(self, dim):
         super().__init__()
 
@@ -29,7 +29,7 @@ class TestLULayer(nn.Module):
         for ligne in range(dim) :
             for colonne in range(dim):
                 if ligne <= colonne :
-                    l[ligne, colonne].requires_grad = False
+                    u[ligne, colonne].requires_grad = False
 
         l = torch.tril(torch.randn(dim, dim),1)
         l += torch.diag(torch.ones(dim, dim))
