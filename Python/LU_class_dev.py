@@ -48,6 +48,7 @@ class TestLULayer(nn.Module):
         self.p = p_matrix
         self.l = l
         self.u = u
+        self.D = D
         self.lu_decomposed = True
     
     def compose_w(p, l, u):
