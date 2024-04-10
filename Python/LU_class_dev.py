@@ -4,41 +4,40 @@ from numpy.random import permutation
 import numpy as np
 
 class TestLULayer(nn.Module):
-    def _init_(self, input_dim: int, output_dim: int):
+    def _init_(self, dim: int):
         super()._init_()
 
-        assert(input_dim == output_dim)
+        self.dim = dim
 
         # w = special_ortho_group.rvs(dim)
         # print(w)
         # w = np.random.rand(output_dim, input_dim)
 
-        k = max(output_dim, input_dim)
 
         """
         w = torch.from_numpy(w)
         p, l, u = torch.linalg.lu(w)
         """
 
-        upper_triangular = torch.triu(torch.randn(k,  input_dim))
-        diagonal = torch.diag(torch.abs(torch.randn(k,input_dim))+1e-5)
+        upper_triangular = torch.triu(torch.randn(dim,  dim))
+        diagonal = torch.diag(torch.abs(torch.randn(dim,dim))+1e-5)
         u = upper_triangular + diagonal
-        for ligne in range(output_dim) :
-            for colonne in range(k):
+        for ligne in range(dim) :
+            for colonne in range(dim):
                 if ligne <= colonne :
                     l[ligne, colonne].requires_grad = False
 
-        l = torch.tril(torch.randn(output_dim, k))
-        l -= torch.diag(torch.diag(l)) - torch.diag(torch.ones(output_dim, k))
+        l = torch.tril(torch.randn(dim, dim))
+        l -= torch.diag(torch.diag(l)) - torch.diag(torch.ones(dim, dim))
 
-        for ligne in range(output_dim) :
-            for colonne in range(k):
+        for ligne in range(dim) :
+            for colonne in range(dim):
                 if ligne >= colonne :
                     l[ligne, colonne].requires_grad = False
 
-        permutation_tensor = torch.LongTensor(permutation([i for i in range(output_dim)]))
+        permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
 
-        p_matrix = torch.zeros(output_dim, output_dim)
+        p_matrix = torch.zeros(dim, dim)
         for i, p in enumerate(permutation_tensor):
             p_matrix[i, p] = 1
 
