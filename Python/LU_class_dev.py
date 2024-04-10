@@ -19,17 +19,21 @@ class TestLULayer(nn.Module):
         p, l, u = torch.linalg.lu(w)
         """
 
-        upper_triangular = torch.triu(torch.randn(dim,  dim))
-        diagonal = torch.diag(torch.abs(torch.randn(dim,dim))+1e-5)
-        u = upper_triangular + diagonal
+        du = torch.zeros(dim)
+        nn.Parameter(du)
+        D = torch.diag(torch.exp(du))
+
+        u = torch.triu(torch.randn(dim,  dim),1)
+        u += torch.diag(torch.ones(dim, dim))
+        nn.Parameter(u)
         for ligne in range(dim) :
             for colonne in range(dim):
                 if ligne <= colonne :
                     l[ligne, colonne].requires_grad = False
 
-        l = torch.tril(torch.randn(dim, dim))
-        l -= torch.diag(torch.diag(l)) - torch.diag(torch.ones(dim, dim))
-
+        l = torch.tril(torch.randn(dim, dim),1)
+        l += torch.diag(torch.ones(dim, dim))
+        nn.Parameter(l)
         for ligne in range(dim) :
             for colonne in range(dim):
                 if ligne >= colonne :
@@ -44,7 +48,6 @@ class TestLULayer(nn.Module):
         self.p = p_matrix
         self.l = l
         self.u = u
-        nn.Parameter(l,u)
         self.lu_decomposed = True
     
     def compose_w(p, l, u):
