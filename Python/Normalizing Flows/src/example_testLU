@@ -29,7 +29,7 @@ trainer = Trainer(flow, optimizer, dataloader, dataloader_test, 10, device)
 
 train_loss, test_loss = trainer.train(nb_epochs)
 
-trainer.save_at(save_name="IAF_test_1.pt")
+trainer.save_at(save_name="LUtest_test_1.pt")
 
 plt.plot(range(len(train_loss)), train_loss)
 plt.plot(range(len(test_loss)), test_loss)
