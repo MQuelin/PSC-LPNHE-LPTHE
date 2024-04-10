@@ -4,8 +4,8 @@ from numpy.random import permutation
 import numpy as np
 
 class TestLULayer(nn.Module):
-    def _init_(self, dim: int):
-        super()._init_()
+    def __init__(self, dim):
+        super().__init__()
 
         self.dim = dim
 
