@@ -31,6 +31,7 @@ class Trainer:
 
                 # Evaluate train loss
                 loss =  (0.5*torch.sum(z**2, 1) - log_jac_det).mean() / self.data_dim
+                loss += 0.5 * np.log(2 * pi)
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -45,6 +46,7 @@ class Trainer:
 
                     # Evaluate test loss
                     loss =  (0.5*torch.sum(z**2, 1) - log_jac_det).mean() / self.data_dim
+                    loss += 0.5 * np.log(2 * pi)
                     testing_loss.append(loss.item())
 
         return training_loss, testing_loss
