@@ -4,7 +4,7 @@ from numpy.random import permutation
 import numpy as np
 
 class LULayer(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, dim, perm = None):
         super().__init__()
 
         self.dim = dim
@@ -22,10 +22,13 @@ class LULayer(nn.Module):
         self.l = nn.Parameter(torch.diag(torch.ones(dim)) + torch.tril(torch.randn(dim, dim),diagonal=-1))
         hl = self.l.register_hook(lambda grad: grad*torch.tril(torch.ones(dim,dim),diagonal=-1))
 
-        permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
-        p_matrix = torch.zeros(dim, dim)
-        for i, p in enumerate(permutation_tensor):
-            p_matrix[i, p] = 1
+        if not perm:
+            permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
+            p_matrix = torch.zeros(dim, dim)
+            for i, p in enumerate(permutation_tensor):
+                p_matrix[i, p] = 1
+        else:
+            p_matrix = perm
         self.p = p_matrix
 
     
