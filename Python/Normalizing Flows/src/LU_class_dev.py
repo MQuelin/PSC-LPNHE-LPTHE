@@ -15,7 +15,6 @@ class LULayer(nn.Module):
         """
 
         self.du = nn.Parameter(torch.zeros(dim))
-        self.D = torch.diag(torch.exp(self.du))
 
         self.u = nn.Parameter(torch.diag(torch.ones(dim)) + torch.triu(torch.randn(dim,  dim),diagonal=1))
         hu = self.u.register_hook(lambda grad: grad*torch.triu(torch.ones(dim,dim),diagonal=1))
@@ -32,7 +31,7 @@ class LULayer(nn.Module):
     
   
     def forward(self, x, reverse=False):
-        w = self.p@self.l@self.u@self.D
+        w = self.p @ self.l @ self.u @ torch.diag(torch.exp(self.du))
         if not reverse : 
             y = (w @ x.T).T
             return y, torch.sum(self.du)
