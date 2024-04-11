@@ -255,7 +255,7 @@ class SimpleIAF(nn.Module):
         # We detach the output as we should not require gradients after this step
         return samples.detach()
     
-class TestLULayer(nn.Module):
+class TestLU(nn.Module):
     def __init__(self, flow_length, dim):
         super().__init__()
 

@@ -11,7 +11,7 @@ torch.autograd.set_detect_anomaly(True)
 
 data = ZeeDataset('../data/100k2.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"
-flow = TestLULayer(4, 10)
+flow = TestLU(4, 10)
 optimizer = torch.optim.Adam(flow.parameters(), lr=1e-4)
 
 ### Dividing the data on train and test
