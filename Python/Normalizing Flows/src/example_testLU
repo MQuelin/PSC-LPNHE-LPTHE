@@ -1,0 +1,44 @@
+import torch
+
+from flows import *
+from datasets import ZeeDataset
+from train import Trainer
+from time import time
+
+
+import matplotlib.pyplot as plt
+
+ts = time()
+torch.autograd.set_detect_anomaly(True)
+
+data = ZeeDataset('../data/100k2.pkl')
+device = "cuda" if torch.cuda.is_available() else "cpu"
+flow = TestLU(10, 10)
+optimizer = torch.optim.Adam(flow.parameters(), lr=1e-4)
+
+### Dividing the data on train and test
+percentage_train = 0.8
+train_len = int(percentage_train * len(data))
+data_train, data_test = torch.utils.data.random_split(data,[train_len, len(data)-train_len])
+
+nb_epochs = 100
+batch_size = 2000
+
+dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True)
+dataloader_test = torch.utils.data.DataLoader(data_test, batch_size=batch_size, shuffle=True)
+
+trainer = Trainer(flow, optimizer, dataloader, dataloader_test, 10, device)
+
+train_loss, test_loss = trainer.train(nb_epochs)
+
+tf = time()
+print(tf-ts)
+
+trainer.save_at(save_name="LUtest_test_1.pt")
+
+fig, (ax1, ax2) = plt.subplots(2, 1)
+ax1.plot(range(len(train_loss)), train_loss)
+#ax1.set_ylim(0,10**8)
+ax2.plot(range(len(test_loss)), test_loss)
+#ax2.set_ylim(0,10**8)
+plt.show()

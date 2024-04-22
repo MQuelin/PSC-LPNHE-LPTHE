@@ -5,6 +5,7 @@ from scipy.stats import multivariate_normal
 
 from bijective_transforms import *
 from misc_transforms import *
+from LU_class_dev import LULayer
 
 from maf_layer import MAFLayer
 
@@ -325,3 +326,20 @@ class CIAF(nn.Module):
 
         # We detach the output as we should not require gradients after this step
         return samples.detach()
+    
+class TestLU(nn.Module):
+    def __init__(self, flow_length, dim):
+        super().__init__()
+
+        self.dim = dim
+        self.layers = nn.ModuleList()
+
+        for k in range(flow_length):
+            self.layers.append(LULayer(dim))
+
+    def forward(self, z, reverse=False):
+        log_jacobians = 0
+        for layer in self.layers:
+            z, log_jacobian = layer(z)
+            log_jacobians += log_jacobian
+        return z, log_jacobians
