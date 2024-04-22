@@ -1,36 +1,27 @@
-from pathlib import Path
 import torch
-import matplotlib.pyplot as plt
-from datasets import ZeeDataset
 
-# flow = torch.load(Path(__file__) / Path('../../models/CNF2_test_3.pt')).to('cuda')
+"""
+This module contains functions used to ensure that a normalizing flow works properly
+for example, check that sampling works or that the network is invertible
 
-# c = torch.Tensor([[-1+k/125,1.0,1.0] for k in range(250)]).to('cuda').to(torch.float64)
+If you wish to do personnal tests:
+    - create a file in Python/Normalizing Flows/src named personnal_test.py
+    -> this file is in the .gitignore and will therefore not be modified so that you can keep personnal tests in that file
+"""
 
-# samples, log_jac = flow.sample(c)
 
-# plt.scatter(c[::,0].to('cpu'), samples[::,0].detach().to('cpu'))
-# plt.show()
+def is_flow_invertible(flow, eps=1e-6, verbose=False):
+    batch = torch.randn(10, flow.output_dim)
+    output, det = flow(batch, reverse = False)
+    output_inv, det_inv = flow(output, reverse = True)
 
-# data = ZeeDataset()
-
-# e = []
-# e_truth = []
-
-# for k in range(100):
-#     sample = data[k]
-#     e_truth.append(sample['input'][0])
-#     e.append(sample['output'][0])
-
-# plt.scatter(e_truth,e)
-# plt.show()
-
-a = torch.rand([10,3])
-b = torch.nn.Parameter(torch.ones(1))
-
-print(a)
-print(a[::,1])
-
-a[::,0] = torch.rand(10)
-
-print(a)
+    max_err = torch.max(torch.abs(batch-output_inv))
+    if max_err<eps:
+        if verbose:
+            print(f'flow is invertible, with max error encountered {max_err}\n\n')
+        return(True)
+    else:
+        if verbose:
+            print(f'flow is not invertible, with max error encountered {max_err}\n')
+            print(f'det = {det}\ndet_inv = {det_inv}\n\n')
+        return(False)

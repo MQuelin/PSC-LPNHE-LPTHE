@@ -218,16 +218,16 @@ class ConditionaMAF(nn.Module):
         return self.forward(c, z, reverse=False)
     
 class SimpleIAF(nn.Module):
-    def __init__(self, flow_length, dim, device='cuda'):
+    def __init__(self, flow_length, output_dim, device='cuda'):
         super().__init__()
         
         self.flow_length = flow_length
-        self.dim = dim
+        self.output_dim = output_dim
         self.device = device
 
         self.layers = nn.ModuleList()
         for k in range(flow_length):
-            self.layers.append(AutoRegressiveLayer(dim))
+            self.layers.append(AutoRegressiveLayer(output_dim))
     
     def forward(self, z, reverse="false"):
         log_jacobians = 0
@@ -246,7 +246,79 @@ class SimpleIAF(nn.Module):
         Takes in an int n representing the desired amout of samples
         Returns a tensor of shape [n,d] where d is the dimension of the output vectors of the model
         """
+        z = torch.normal(std = torch.ones(n))
 
+        samples, _log_dets = self.forward(z,reverse=False)
+
+        # We detach the output as we should not require gradients after this step
+        return samples.detach()
+
+class SimpleIAF2(nn.Module):
+    def __init__(self, flow_length, output_dim, device='cuda'):
+        super().__init__()
+        
+        self.flow_length = flow_length
+        self.output_dim = output_dim
+        self.device = device
+
+        self.layers = nn.ModuleList()
+        for k in range(flow_length):
+            self.layers.append(AutoRegressiveLayer2(output_dim).to(device))
+    
+    def forward(self, z, reverse="false"):
+        log_jacobians = 0
+        if not reverse:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[k](z, reverse)
+                log_jacobians += log_jacobian
+        else:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[-1-k](z, reverse)
+                log_jacobians += log_jacobian            
+        return z, log_jacobians
+
+    def sample(self, n):
+        """
+        Takes in an int n representing the desired amout of samples
+        Returns a tensor of shape [n,d] where d is the dimension of the output vectors of the model
+        """
+        z = torch.normal(std = torch.ones(n))
+
+        samples, _log_dets = self.forward(z,reverse=False)
+
+        # We detach the output as we should not require gradients after this step
+        return samples.detach()
+
+class CIAF(nn.Module):
+    def __init__(self, flow_length, input_dim, output_dim, device='cuda'):
+        super().__init__()
+        
+        self.flow_length = flow_length
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.device = device
+
+        self.layers = nn.ModuleList()
+        for k in range(flow_length):
+            self.layers.append(ConditionalAutoRegressiveLayer(input_dim, output_dim))
+    
+    def forward(self, z, c, reverse="false"):
+        log_jacobians = 0
+        if not reverse:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[k](z, c, reverse)
+                log_jacobians += log_jacobian
+        else:
+            for k in range(self.flow_length):
+                z, log_jacobian = self.layers[-1-k](z, c, reverse)
+                log_jacobians += log_jacobian            
+        return z, log_jacobians
+
+    def sample(self, c, n):
+        """
+        Takes in an int n representing the desired amout of samples and c a tensor of conditions
+        Returns a tensor of shape [n,output_dim]
+        """
         z = torch.normal(std = torch.ones(n))
 
         samples, _log_dets = self.forward(z,reverse=False)

@@ -1,3 +1,7 @@
+import torch
+import torch.nn as nn
+import numpy as np
+
 class TestLULayer(nn.Module):
     def __init__(self, input_dim: int, output_dim: int, lu_decomposed=True):
         super().__init__()
@@ -36,8 +40,7 @@ class TestLULayer(nn.Module):
     def invert(self, y):
         if self.lu_decomposed:
             w = self.compose_w(self.p, self.l, self.u)
-            log_det = torch.sum(torch.log(
-                torch.abs(torch.diagonal(self.u))))
+            log_det = torch.sum(torch.log(torch.abs(torch.diagonal(self.u))))
         else:
             w = self.w
             log_det = torch.log(

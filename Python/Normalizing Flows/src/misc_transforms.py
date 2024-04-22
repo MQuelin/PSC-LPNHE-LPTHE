@@ -51,3 +51,38 @@ class MLP(nn.Module):
         """
         
         return self.transform(z)
+
+
+class InvertibleMapping(nn.Module):
+    """
+    invertible mapping object that applies a linear transform to a batch of vectors
+    i.e X = A.Z and X = A_inv.Z
+    furthermore |det(A)| = |det(A_inv)| = 1, so that the transformation preserves volume
+    """
+    def __init__(self, dim) -> None:
+        super().__init__()
+        A = torch.randn(dim,dim)
+        # we normalize the matrix here
+        # we do so twice to try and ensure proper invertibility
+        for k in range(2):
+            det = torch.abs(torch.linalg.det(A))
+            A = A/(det**(1/dim))
+        
+        
+        self.A =  A
+        self.A = A
+        self.A.requires_grad = False
+        self.A_inv = torch.linalg.inv(self.A)
+        self.A_inv.requires_grad = False
+        self.device = 'cpu'
+    
+    def forward(self, z, reverse = False):
+        device = z.device
+        if self.device != device:
+            self.A = self.A.to(device)
+            self.A_inv = self.A_inv.to(device)
+        z = torch.transpose(z,0,1)
+        if not reverse:
+            return torch.transpose(self.A@z,0,1)
+        else:
+            return torch.transpose(self.A_inv@z,0,1)

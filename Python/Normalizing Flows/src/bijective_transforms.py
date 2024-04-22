@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
 from numpy.random import permutation
-from misc_transforms import MLP
+from misc_transforms import MLP, InvertibleMapping
+from flow_utils import *
 
 """
 File containing different classes used as bijective transforms that can be composed together to create normalizing flows
@@ -137,7 +138,6 @@ class AdditiveCouplingLayer(nn.Module):
         data_dim = z.shape[-1]
 
         if not reverse:
-
             # Permute Tensor acording to the permutation describded in the permutation tensor
             z = z[:,self.permutation_tensor]
 
@@ -154,10 +154,6 @@ class AdditiveCouplingLayer(nn.Module):
 
             return x, log_det
         else:
-
-            # Permute Tensor acording to the permutation describded in the permutation tensor
-            z = z[:,self.reverse_permutation_tensor]
-
             (z1,z2) = torch.split(z, (self.n, data_dim - self.n), dim = 1)
 
             scaling_vector = torch.exp(self.s(z1))
@@ -167,6 +163,9 @@ class AdditiveCouplingLayer(nn.Module):
             x = torch.concat((x1,x2), dim=1)
 
             log_det = - torch.log(scaling_vector.sum(1))
+
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            x = x[:,self.reverse_permutation_tensor]
 
             return x, log_det
 
@@ -325,12 +324,12 @@ class AutoRegressiveLayer(nn.Module):
         self.s_list= nn.ParameterList()
         self.m_list= nn.ParameterList()
         for k in range(dim-1):
-            self.s_list.append(MLP([k+1,1],activation_layer=nn.Tanh()))
-            self.m_list.append(MLP([k+1,1],activation_layer=nn.Tanh()))
+            self.s_list.append(MLP([k+1,k+1,1],activation_layer=nn.Tanh()))
+            self.m_list.append(MLP([k+1,k+1,1],activation_layer=nn.Tanh()))
         
         # As the first transforms are not linear per se as they take in no input we declare them as a scalars here
         self.s0 = nn.Parameter(torch.zeros(1))
-        self.m0 = nn.Parameter(torch.zeros(1))
+        self.m0 = nn.Parameter(torch.ones(1))
 
         self.permutation_tensor = torch.LongTensor(permutation([i for i in range(dim)]))
         self.reverse_permutation_tensor = torch.LongTensor([0 for i in range(dim)])
@@ -347,7 +346,6 @@ class AutoRegressiveLayer(nn.Module):
             # Permute Tensor acording to the permutation describded in the permutation tensor
             z = z[:,self.permutation_tensor]
             for i in range(self.dim):
-
                 # xi = zi * si(z1,z2,...,z_i-1) + mi(z1,z2,...,z_i-1)
                 if i==0:
                     scaling_vector = self.s0
@@ -363,8 +361,7 @@ class AutoRegressiveLayer(nn.Module):
                     log_jac_det += scaling_vector.squeeze(1)
 
         else:
-            # Permute Tensor acording to the permutation describded in the permutation tensor
-            z = z[:,self.reverse_permutation_tensor]
+            # TODO: see if another implementation that does not rely on cloning exists to minimize training time
             for i in range(self.dim):
                 # zi = (xi - mi(z1,z2,...,z_i-1)) / si(z1,z2,...,z_i-1)
                 # To avoid changing the arguments name we simply replace x by z in the above formula
@@ -376,10 +373,200 @@ class AutoRegressiveLayer(nn.Module):
                 else :
                     s = self.s_list[i-1]
                     m = self.m_list[i-1]
-                    scaling_vector = s(x[::,0:i])
-                    x[::,i] = (z[::,i] - m(z[::,0:i]).squeeze(1)) * torch.exp(-scaling_vector).squeeze(1)
+                    scaling_vector = -s(x[::,0:i].clone())
+                    x[::,i] = (z[::,i] - m(x[::,0:i].clone()).squeeze(1)) * torch.exp(scaling_vector).squeeze(1)
 
-                    log_jac_det += -scaling_vector.squeeze(1)
+                    log_jac_det += scaling_vector.squeeze(1)
 
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            x = x[:,self.reverse_permutation_tensor]
+
+        
+        return x, log_jac_det
+
+class AutoRegressiveLayer2(nn.Module):
+    """
+    Module used to apply an auto regressive transform
+    This Module uses a randomly generated invertible linear transform of determinant 1 instead of a permutation like in AutoRegressiveLayer
+    ------------
+    Forward mapping process with scaling and conditioning:
+
+        z = (z1, ..., zn)
+        xi = zi * si(z1,z2,...,z_i-1) + mi(z1,z2,...,z_i-1)
+        log(det(jacobian)) = sum(si)
+
+        this process is done in parallel and is the choosen sampling process:
+    
+    Reverse mapping process :
+
+        x = (x1, ...,xn)
+        zi = (xi - mi(z1,z2,...,z_i-1)) / si(z1,z2,...,z_i-1)
+        log(det(jacobian)) = -sum(si)
+
+        this process must be done sequentially and is used for training
+                
+    see for reference:  https://lilianweng.github.io/posts/2018-10-13-flow-models/
+                        https://arxiv.org/pdf/1606.04934.pdf
+    """
+
+    def __init__(self, output_dim: int):
+        """
+        Arguments:
+            - output_dim: int: dimension of the vectors that will go through the layer/flow
+
+        """
+        super().__init__()
+        self.output_dim = output_dim
+        self.s_list= nn.ParameterList()
+        self.m_list= nn.ParameterList()
+        for k in range(output_dim-1):
+            self.s_list.append(MLP([k+1,k+1,1],activation_layer=nn.Tanh()))
+            self.m_list.append(MLP([k+1,k+1,1],activation_layer=nn.Tanh()))
+        
+        # As the first transforms are not linear per se as they take in no input we declare them as a scalars here
+        self.s0 = nn.Parameter(torch.zeros(1))
+        self.m0 = nn.Parameter(torch.ones(1))
+
+        self.invertible_mapping = InvertibleMapping(dim=output_dim)
+        
+    def forward(self, z, reverse="false"):
+        x = torch.zeros_like(z)
+        log_jac_det = torch.zeros_like(z[::,0])
+
+        # IMPORTANT TODO
+        # Render the forward process parallel and not sequential to acheive better computational efficiency
+        if not reverse:
+            for i in range(self.output_dim):
+                # xi = zi * si(z1,z2,...,z_i-1) + mi(z1,z2,...,z_i-1)
+                if i==0:
+                    scaling_vector = self.s0
+                    x[::,i] = z[::,i] * torch.exp(scaling_vector) + self.m0
+                    log_jac_det += scaling_vector
+
+                else :
+                    s = self.s_list[i-1]
+                    m = self.m_list[i-1]
+                    scaling_vector = s(z[::,0:i]).squeeze(1)
+                    x[::,i] = z[::,i] * torch.exp(scaling_vector) + m(z[::,0:i]).squeeze(1)
+
+                    log_jac_det += scaling_vector
+
+            # we map the vectors through the invertible mapping
+            # the determinant is 1 so log(|det(Jacobian)|) = 0 and we don't need to update log_jac_det
+            z = self.invertible_mapping(z, reverse)
+        else:
+            # we map the vectors through the reverse of the invertible mapping
+            # the determinant is +1 or -1 so log(|det(Jacobian)|) = 0 and we don't need to update log_jac_det
+            x = self.invertible_mapping(x, reverse)
+
+            # TODO: see if another implementation that does not rely on cloning exists to minimize training time
+            for i in range(self.output_dim):
+                # zi = (xi - mi(z1,z2,...,z_i-1)) / si(z1,z2,...,z_i-1)
+                # To avoid changing the arguments name we simply replace x by z in the above formula
+                if i==0:
+                    scaling_vector = - self.s0
+                    x[::,i] = (z[::,i] - self.m0) * torch.exp(scaling_vector)
+                    log_jac_det += scaling_vector
+                
+                else :
+                    s = self.s_list[i-1]
+                    m = self.m_list[i-1]
+                    x_clone = x[::,0:i].clone()
+                    scaling_vector = -s(x_clone).squeeze(1)
+                    x[::,i] = (z[::,i] - m(x_clone).squeeze(1)) * torch.exp(scaling_vector)
+
+                    log_jac_det += scaling_vector
+            
+            
+
+        
+        return x, log_jac_det
+
+class ConditionalAutoRegressiveLayer(nn.Module):
+    """
+    Module used to apply an auto regressive transform with conditions
+    ------------
+    Forward mapping process with scaling and conditioning:
+
+        z = (z1, ..., zn)
+        xi = zi * si(z1,z2,...,z_i-1,c) + mi(z1,z2,...,z_i-1,c)
+        log(det(jacobian)) = sum(si)
+
+        this process is done in parallel and is the choosen sampling process:
+    
+    Reverse mapping process :
+
+        x = (x1, ...,xn)
+        zi = (xi - mi(z1,z2,...,z_i-1,c)) / si(z1,z2,...,z_i-1,c)
+        log(det(jacobian)) = -sum(si)
+
+        this process must be done sequentially and is used for training
+                
+    see for reference:  https://lilianweng.github.io/posts/2018-10-13-flow-models/
+                        https://arxiv.org/pdf/1606.04934.pdf
+                        https://arxiv.org/pdf/1911.02052.pdf
+    """
+
+    def __init__(self, input_dim: int, output_dim: int):
+        """
+        Arguments:
+            - intput_dim: int: dimension of the conditions vector
+            - output_dim: int: dimension of the output vectors of the transform
+
+        """
+        super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.s_list= nn.ParameterList()
+        self.m_list= nn.ParameterList()
+        for k in range(output_dim):
+            self.s_list.append(MLP([k+input_dim,k+input_dim,1],activation_layer=nn.Tanh()))
+            self.m_list.append(MLP([k+input_dim,k+input_dim,1],activation_layer=nn.Tanh()))
+
+        self.permutation_tensor = torch.LongTensor(permutation([i for i in range(output_dim)]))
+        self.reverse_permutation_tensor = torch.LongTensor([0 for i in range(output_dim)])
+        for i in range(output_dim):
+            self.reverse_permutation_tensor[self.permutation_tensor[i]] = i
+        
+
+    def forward(self, z, c, reverse="false"):
+        """
+        Arguments:
+            - z: tensor of shape [batch_size, output_dim], the vectors that will pass through the flow
+            - c: tensor of shape [batch_size, intput_dim], the conditions vectors
+
+        """
+        x = torch.zeros_like(z)
+        log_jac_det = torch.zeros_like(z[::,0])
+
+        # IMPORTANT TODO
+        # Render the forward process parallel and not sequential to acheive better computational efficiency
+        if not reverse:
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            z = z[:,self.permutation_tensor]
+            for i in range(self.dim):
+                # xi = zi * si(z1,z2,...,z_i-1,c) + mi(z1,z2,...,z_i-1,c)
+                s = self.s_list[i]
+                m = self.m_list[i]
+                scaling_vector = s(torch.concat(z[::,0:i], c, dim=1))
+                x[::,i] = z[::,i] * torch.exp(scaling_vector).squeeze(1) + m(torch.concat(z[::,0:i], c, dim=1)).squeeze(1)
+
+                log_jac_det += scaling_vector.squeeze(1)
+
+        else:
+
+            # TODO: see if another implementation that does not rely on cloning exists to minimize training time
+            for i in range(self.dim):
+                # zi = (xi - mi(z1,z2,...,z_i-1,c)) / si(z1,z2,...,z_i-1,c)
+                # To avoid changing the arguments name we simply replace x by z in the above formula
+                s = self.s_list[i]
+                m = self.m_list[i]
+                scaling_vector = -s(torch.concat(x[::,0:i], c, dim=1))
+                x[::,i] = (z[::,i] - m(torch.concat(x[::,0:i], c, dim=1)).squeeze(1)) * torch.exp(scaling_vector).squeeze(1)
+
+                log_jac_det += scaling_vector.squeeze(1)
+
+            # Permute Tensor acording to the permutation describded in the permutation tensor
+            x = x[:,self.reverse_permutation_tensor]
         
         return x, log_jac_det

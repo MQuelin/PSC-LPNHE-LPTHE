@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 torch.set_default_dtype(torch.float64)
 
-flow = ConditionalNF(32, 3, 10, [10,10,10])
+flow = ConditionalNF(16, 3, 10, [10,10,10])
 optimizer = torch.optim.Adam(flow.parameters(), lr=1e-4)
 data = ZeeDataset('../data/100k2.pkl')
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -20,7 +20,7 @@ train_len = int(percentage_train * len(data))
 data_train, data_test = torch.utils.data.random_split(data, 
                                                       [train_len, len(data)-train_len])
 
-nb_epochs = 100 #last around -1.5
+nb_epochs = 50
 batch_size = 1000
 
 dataloader = torch.utils.data.DataLoader(data_train, batch_size=batch_size, shuffle=True)
