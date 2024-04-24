@@ -50,5 +50,9 @@ plt.plot(R[0,:], R[1,:], 'o')
 plt.axis('equal')
 plt.show()
 
-
 #%%
+
+path_to_save_o = "/Users/alexandreviolleau/Desktop/Data/original.txt"
+path_to_save_e = "/Users/alexandreviolleau/Desktop/Data/exploit.txt"
+np.savetxt(path_to_save_o, L, fmt='%d')
+np.savetxt(path_to_save_e, R, fmt='%d')
