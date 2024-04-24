@@ -108,3 +108,24 @@ class TestSet2(Dataset):
         sample_output = self.__data[idx]
         sample = {'input': sample_input, 'output': sample_output}
         return sample
+
+class TestSetGauss(Dataset):
+    def __init__(self, n, donnee, plot_data = False):
+        super().__init__()
+
+        self.__len = n
+        self.__labels = torch.Tensor([1 for i in range(n)])
+        self.__data = torch.Tensor(plot_data)
+
+        if plot_data:
+            plt.scatter(self.__data[::1000,0].numpy(), self.__data[::1000,1].numpy())
+            plt.show()
+
+    def __len__(self):
+        return self.__len
+
+    def __getitem__(self, idx) :
+        sample_input = self.__labels[idx]
+        sample_output = self.__data[idx]
+        sample = {'input': sample_input, 'output': sample_output}
+        return sample
