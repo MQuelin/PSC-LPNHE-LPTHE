@@ -453,11 +453,11 @@ class AutoRegressiveLayer2(nn.Module):
 
             # we map the vectors through the invertible mapping
             # the determinant is 1 so log(|det(Jacobian)|) = 0 and we don't need to update log_jac_det
-            z = self.invertible_mapping(z, reverse)
+            x = self.invertible_mapping(x, reverse)
         else:
             # we map the vectors through the reverse of the invertible mapping
             # the determinant is +1 or -1 so log(|det(Jacobian)|) = 0 and we don't need to update log_jac_det
-            x = self.invertible_mapping(x, reverse)
+            z = self.invertible_mapping(z, reverse)
 
             # TODO: see if another implementation that does not rely on cloning exists to minimize training time
             for i in range(self.output_dim):
@@ -477,10 +477,10 @@ class AutoRegressiveLayer2(nn.Module):
 
                     log_jac_det += scaling_vector
             
+        return x, log_jac_det
             
 
         
-        return x, log_jac_det
 
 class ConditionalAutoRegressiveLayer(nn.Module):
     """
@@ -529,7 +529,7 @@ class ConditionalAutoRegressiveLayer(nn.Module):
             self.reverse_permutation_tensor[self.permutation_tensor[i]] = i
         
 
-    def forward(self, z, c, reverse="false"):
+    def forward(self, c, z, reverse="false"):
         """
         Arguments:
             - z: tensor of shape [batch_size, output_dim], the vectors that will pass through the flow
@@ -544,29 +544,107 @@ class ConditionalAutoRegressiveLayer(nn.Module):
         if not reverse:
             # Permute Tensor acording to the permutation describded in the permutation tensor
             z = z[:,self.permutation_tensor]
-            for i in range(self.dim):
+            for i in range(self.input_dim):
                 # xi = zi * si(z1,z2,...,z_i-1,c) + mi(z1,z2,...,z_i-1,c)
                 s = self.s_list[i]
                 m = self.m_list[i]
-                scaling_vector = s(torch.concat(z[::,0:i], c, dim=1))
-                x[::,i] = z[::,i] * torch.exp(scaling_vector).squeeze(1) + m(torch.concat(z[::,0:i], c, dim=1)).squeeze(1)
+                scaling_vector = s(torch.concat((z[::,0:i], c), dim=1))
+                x[::,i] = z[::,i] * torch.exp(scaling_vector).squeeze(1) + m(torch.concat((z[::,0:i], c), dim=1)).squeeze(1)
 
                 log_jac_det += scaling_vector.squeeze(1)
 
         else:
-
             # TODO: see if another implementation that does not rely on cloning exists to minimize training time
-            for i in range(self.dim):
+            for i in range(self.input_dim):
                 # zi = (xi - mi(z1,z2,...,z_i-1,c)) / si(z1,z2,...,z_i-1,c)
                 # To avoid changing the arguments name we simply replace x by z in the above formula
                 s = self.s_list[i]
                 m = self.m_list[i]
-                scaling_vector = -s(torch.concat(x[::,0:i], c, dim=1))
-                x[::,i] = (z[::,i] - m(torch.concat(x[::,0:i], c, dim=1)).squeeze(1)) * torch.exp(scaling_vector).squeeze(1)
+                scaling_vector = -s(torch.concat((x[::,0:i], c), dim=1))
+                x[::,i] = (z[::,i] - m(torch.concat((x[::,0:i], c), dim=1)).squeeze(1)) * torch.exp(scaling_vector).squeeze(1)
 
                 log_jac_det += scaling_vector.squeeze(1)
 
             # Permute Tensor acording to the permutation describded in the permutation tensor
             x = x[:,self.reverse_permutation_tensor]
         
+        return x, log_jac_det
+
+class ConditionalAutoRegressiveLayer2(nn.Module):
+    """
+    Module used to apply an auto regressive transform
+    This Module uses a randomly generated invertible linear transform of determinant 1 instead of a permutation like in AutoRegressiveLayer
+    ------------
+    Forward mapping process with scaling and conditioning:
+
+        z = (z1, ..., zn)
+        xi = zi * si(z1,z2,...,z_i-1) + mi(z1,z2,...,z_i-1)
+        log(det(jacobian)) = sum(si)
+
+        this process is done in parallel and is the choosen sampling process:
+    
+    Reverse mapping process :
+
+        x = (x1, ...,xn)
+        zi = (xi - mi(z1,z2,...,z_i-1)) / si(z1,z2,...,z_i-1)
+        log(det(jacobian)) = -sum(si)
+
+        this process must be done sequentially and is used for training
+                
+    see for reference:  https://lilianweng.github.io/posts/2018-10-13-flow-models/
+                        https://arxiv.org/pdf/1606.04934.pdf
+    """
+
+    def __init__(self, input_dim: int, output_dim: int):
+        """
+        Arguments:
+            - intput_dim: int: dimension of the conditions vector
+            - output_dim: int: dimension of the output vectors of the transform
+
+        """
+        super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.s_list= nn.ParameterList()
+        self.m_list= nn.ParameterList()
+        for k in range(output_dim):
+            self.s_list.append(MLP([k+input_dim,k+input_dim,1],activation_layer=nn.Tanh()))
+            self.m_list.append(MLP([k+input_dim,k+input_dim,1],activation_layer=nn.Tanh()))
+
+        self.invertible_mapping = InvertibleMapping(dim=output_dim)
+        
+    def forward(self, c, z, reverse="false"):
+        x = torch.zeros_like(z)
+        log_jac_det = torch.zeros_like(z[::,0])
+
+        # IMPORTANT TODO
+        # Render the forward process parallel and not sequential to acheive better computational efficiency
+        if not reverse:
+            for i in range(self.output_dim):
+                # xi = zi * si(z1,z2,...,z_i-1,c) + mi(z1,z2,...,z_i-1,c)
+                s = self.s_list[i]
+                m = self.m_list[i]
+                scaling_vector = s(torch.concat((z[::,0:i], c), dim=1))
+                x[::,i] = z[::,i] * torch.exp(scaling_vector).squeeze(1) + m(torch.concat((z[::,0:i], c), dim=1)).squeeze(1)
+
+                log_jac_det += scaling_vector.squeeze(1)
+
+            # we map the vectors through the invertible mapping
+            # the determinant is 1 so log(|det(Jacobian)|) = 0 and we don't need to update log_jac_det
+            x = self.invertible_mapping(x, reverse)
+        else:
+            # TODO: see if another implementation that does not rely on cloning exists to minimize training time
+            # we map the vectors through the invertible mapping
+            # the determinant is 1 so log(|det(Jacobian)|) = 0 and we don't need to update log_jac_det
+            z = self.invertible_mapping(z, reverse)
+            for i in range(self.output_dim):
+                # zi = (xi - mi(z1,z2,...,z_i-1,c)) / si(z1,z2,...,z_i-1,c)
+                # To avoid changing the arguments name we simply replace x by z in the above formula
+                s = self.s_list[i]
+                m = self.m_list[i]
+                scaling_vector = -s(torch.concat((x[::,0:i], c), dim=1))
+                x[::,i] = (z[::,i] - m(torch.concat((x[::,0:i], c), dim=1)).squeeze(1)) * torch.exp(scaling_vector).squeeze(1)
+
+                log_jac_det += scaling_vector.squeeze(1)
+            
         return x, log_jac_det

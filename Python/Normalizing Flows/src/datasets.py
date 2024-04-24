@@ -1,10 +1,9 @@
 import pickle
 import torch
-from torch.utils.data import Dataset, TensorDataset
-from torch.nn.functional import normalize
+from torch.utils.data import Dataset
 from pathlib import Path
-from numpy import array as np_array
-from numpy import float32 as np_float32
+from math import pi
+import matplotlib.pyplot as plt
 
 #Sanitize Inputs when loading instead of simply commenting out
 
@@ -61,5 +60,51 @@ class ZeeDataset(Dataset):
     def __getitem__(self, idx) :
         sample_input = self.inputs[idx]
         sample_output = self.outputs[idx]
+        sample = {'input': sample_input, 'output': sample_output}
+        return sample
+
+class TestSet1(Dataset):
+    def __init__(self, n, plot_data = False) -> None:
+        super().__init__()
+
+        radius = 5.0
+
+        self.__len = n
+        self.__labels = torch.Tensor([2*pi*i/n - pi/2 for i in range(n)])
+        self.__data = radius*torch.cos(torch.Tensor([[2*pi*i/n - pi/2, 2*pi*i/n - pi, 0] for i in range(n)])) + torch.randn(size=(n,3))
+
+        if plot_data:
+            plt.scatter(self.__data[::1000,0].numpy(), self.__data[::1000,1].numpy())
+            plt.show()
+
+    def __len__(self):
+        return self.__len
+
+    def __getitem__(self, idx) :
+        sample_input = self.__labels[idx]
+        sample_output = self.__data[idx]
+        sample = {'input': sample_input, 'output': sample_output}
+        return sample
+
+class TestSet2(Dataset):
+    def __init__(self, n, plot_data = False) -> None:
+        super().__init__()
+
+        radius = 5.0
+
+        self.__len = n
+        self.__labels = torch.Tensor([int(2*i/n)*pi for i in range(n)])
+        self.__data = radius*torch.cos(torch.Tensor([[int(2*i/n)*pi, int(2*i/n)*pi - pi/2, 0] for i in range(n)])) + torch.randn(size=(n,3))
+
+        if plot_data:
+            plt.scatter(self.__data[::1000,0].numpy(), self.__data[::1000,1].numpy())
+            plt.show()
+
+    def __len__(self):
+        return self.__len
+
+    def __getitem__(self, idx) :
+        sample_input = self.__labels[idx]
+        sample_output = self.__data[idx]
         sample = {'input': sample_input, 'output': sample_output}
         return sample

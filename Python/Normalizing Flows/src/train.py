@@ -4,6 +4,7 @@ from tqdm import tqdm
 from pathlib import Path
 from math import pi
 import numpy as np
+from tests import sample_flow_1D
 
 class Trainer:
     """
@@ -81,18 +82,20 @@ class ConditionalTrainer:
     def train(self, nb_epochs):
         training_loss = []
         testing_loss = []
-        for epoch in tqdm(range(nb_epochs), desc='Performing training:\n'):
+        for epoch in tqdm(range(nb_epochs), desc='Performing training'):
             for batch, sample in enumerate(self.dataloader_train):
                 # Propagate the samples backwards through the flow
                 self.flow.train()
                 c = sample['input'].to(self.device)
+                if self.input_dim == 1:
+                    c = c.unsqueeze(dim=1)
                 x = sample['output'].to(self.device)
                 z, log_jac_det = self.flow(c, x, reverse=True)
 
                 c_estimate, dummy_variable = torch.split(z, (self.input_dim, self.output_dim-self.input_dim), dim = 1)
 
                 # Evaluate train loss
-                loss =  (0.5*torch.sum(dummy_variable**2, 1) + 0*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
+                loss = 1 + (0.5*torch.sum(dummy_variable**2, 1) + 0*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
 
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -103,14 +106,18 @@ class ConditionalTrainer:
                 self.flow.eval()
                 with torch.inference_mode():
                     c = sample['input'].to(self.device)
+                    if self.input_dim == 1:
+                        c = c.unsqueeze(dim=1)
                     x = sample['output'].to(self.device)
                     z, log_jac_det = self.flow(c, x, reverse=True)
 
                     c_estimate, dummy_variable = torch.split(z, (self.input_dim, self.output_dim-self.input_dim), dim = 1)
 
                     # Evaluate test loss
-                    loss =  (0.5*torch.sum(dummy_variable**2, 1) + 0*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
+                    loss = 1 + (0.5*torch.sum(dummy_variable**2, 1) + 0*5/self.epsilon*torch.sum((c_estimate-c)**2, 1) - log_jac_det).mean() / self.output_dim
                     testing_loss.append(loss.item())
+
+            # sample_flow_1D(self.flow)
 
         return training_loss, testing_loss
     

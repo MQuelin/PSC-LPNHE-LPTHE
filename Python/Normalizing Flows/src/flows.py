@@ -1,8 +1,5 @@
 import torch.nn as nn
 
-import numpy as np
-from scipy.stats import multivariate_normal
-
 from bijective_transforms import *
 from misc_transforms import *
 from LU_class_dev import LULayer
@@ -31,20 +28,22 @@ class SimplePlanarNF(nn.Module):
 
 class SimpleAdditiveNF(nn.Module):
     """
+    Bugged
     A simple Normalizing Flow where each layer is an Additive Layer
     """
     def __init__(self, flow_length, data_dim):
         super().__init__()
 
+        self.output_dim = data_dim
         n = data_dim//2
 
         self.layers = nn.ModuleList()
         for k in range(flow_length):
-            self.layers.append(f'Module_{k}', AdditiveCouplingLayer(data_dim,
-                                                                        n=n,
-                                                                        m=MLP([n, 10, 10, data_dim - n]),
-                                                                        s=MLP([n, 10, 10, data_dim - n])
-                                                                        ))
+            self.layers.append(AdditiveCouplingLayer(data_dim,
+                                                            n=n,
+                                                            m=MLP([n, 10, 10, data_dim - n]),
+                                                            s=MLP([n, 10, 10, data_dim - n])
+                                                            ))
         self.flow_length = flow_length
     
     def forward(self, z, reverse="false"):
@@ -58,6 +57,18 @@ class SimpleAdditiveNF(nn.Module):
                 z, log_jacobian = self.layers[-1-k](z, reverse)
                 log_jacobians += log_jacobian            
         return z, log_jacobians
+    
+    def sample(self, n):
+        """
+        Takes in an int n representing the desired amout of samples
+        Returns a tensor of shape [n,d] where d is the dimension of the output vectors of the model
+        """
+        z = torch.randn(size=(n,self.output_dim)).to(self.device)
+
+        samples, _log_dets = self.forward(z,reverse=False)
+
+        # We detach the output as we should not require gradients after this step
+        return samples.cpu().detach()
 
 class ConditionalNF(nn.Module):
     """
@@ -109,9 +120,11 @@ class ConditionalNF(nn.Module):
 
         batch_size = c.shape[0]
         c = c.to(self.device)
+   
+        dummy_variable = torch.randn(size=(batch_size,self.output_dim-self.input_dim)).to(self.device)
 
-        gaussian = multivariate_normal(cov=np.eye(self.output_dim-self.input_dim))
-        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device).to(torch.float32)
+        if self.input_dim ==1:
+            c = c.unsqueeze(dim=1)
 
         z = torch.concat((c,dummy_variable), dim=1)
 
@@ -168,8 +181,7 @@ class ImageConditionalNF(nn.Module):
         batch_size = c.shape[0]
         c = c.to(self.device)
 
-        gaussian = multivariate_normal(cov=np.eye(self.output_dim-self.input_dim))
-        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device).to(torch.float32)
+        dummy_variable = torch.randn(size=(batch_size,self.output_dim-self.input_dim)).to(self.device)
 
         z = torch.concat((c,dummy_variable), dim=1)
 
@@ -211,8 +223,7 @@ class ConditionaMAF(nn.Module):
         batch_size = c.shape[0]
         c = c.to(self.device)
 
-        gaussian = multivariate_normal(cov=np.eye(self.output_dim))
-        dummy_variable = torch.tensor(gaussian.rvs(size = batch_size)).to(self.device).to(torch.float32)
+        dummy_variable = torch.randn(size=(batch_size,self.output_dim-self.input_dim)).to(self.device)
 
         z = torch.concat((c,dummy_variable), dim=1)
 
@@ -247,12 +258,12 @@ class SimpleIAF(nn.Module):
         Takes in an int n representing the desired amout of samples
         Returns a tensor of shape [n,d] where d is the dimension of the output vectors of the model
         """
-        z = torch.normal(std = torch.ones(n))
+        z = torch.randn(size=(n,self.output_dim)).to(self.device)
 
         samples, _log_dets = self.forward(z,reverse=False)
 
         # We detach the output as we should not require gradients after this step
-        return samples.detach()
+        return samples.cpu().detach()
 
 class SimpleIAF2(nn.Module):
     def __init__(self, flow_length, output_dim, device='cuda'):
@@ -283,12 +294,12 @@ class SimpleIAF2(nn.Module):
         Takes in an int n representing the desired amout of samples
         Returns a tensor of shape [n,d] where d is the dimension of the output vectors of the model
         """
-        z = torch.normal(std = torch.ones(n))
+        z = torch.randn(size=(n,self.output_dim)).to(self.device)
 
         samples, _log_dets = self.forward(z,reverse=False)
 
         # We detach the output as we should not require gradients after this step
-        return samples.detach()
+        return samples.cpu().detach()
 
 class CIAF(nn.Module):
     def __init__(self, flow_length, input_dim, output_dim, device='cuda'):
@@ -301,31 +312,36 @@ class CIAF(nn.Module):
 
         self.layers = nn.ModuleList()
         for k in range(flow_length):
-            self.layers.append(ConditionalAutoRegressiveLayer(input_dim, output_dim))
+            self.layers.append(ConditionalAutoRegressiveLayer2(input_dim, output_dim))
     
-    def forward(self, z, c, reverse="false"):
+    def forward(self, c, z, reverse="false"):
         log_jacobians = 0
         if not reverse:
             for k in range(self.flow_length):
-                z, log_jacobian = self.layers[k](z, c, reverse)
+                z, log_jacobian = self.layers[k](c, z, reverse)
                 log_jacobians += log_jacobian
         else:
             for k in range(self.flow_length):
-                z, log_jacobian = self.layers[-1-k](z, c, reverse)
+                z, log_jacobian = self.layers[-1-k](c, z, reverse)
                 log_jacobians += log_jacobian            
         return z, log_jacobians
 
-    def sample(self, c, n):
+    def sample(self, c):
         """
-        Takes in an int n representing the desired amout of samples and c a tensor of conditions
-        Returns a tensor of shape [n,output_dim]
+        Takes in a batch of conditions c
+        Returns a tensor of samples
         """
-        z = torch.normal(std = torch.ones(n))
+        batch_size = c.shape[0]
+        c = c.to(self.device)
 
-        samples, _log_dets = self.forward(z,reverse=False)
+        dummy_variable = torch.randn(size=(batch_size,self.output_dim-self.input_dim)).to(self.device)
+        
+        if self.input_dim ==1:
+            c = c.unsqueeze(dim=1)
 
-        # We detach the output as we should not require gradients after this step
-        return samples.detach()
+        z = torch.concat((c,dummy_variable), dim=1)
+
+        return self.forward(c, z, reverse=False)
     
 class TestLU(nn.Module):
     def __init__(self, flow_length, dim):

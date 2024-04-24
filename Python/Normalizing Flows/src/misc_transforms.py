@@ -24,7 +24,7 @@ class MLP(nn.Module):
     Simple Multi Layered Perceptron with ReLU activation layers and a customizable final activation layer.
     """
 
-    def __init__(self, features_dim_list, activation_layer = nn.ReLU(), scaling_factor = 1.0):
+    def __init__(self, features_dim_list, activation_layer = nn.ReLU(), scaling_factor = 1.0, device="cuda"):
         """
         Arguments:
             -features_dim_list: list of dimensions of each layer. first(resp. last) int in the list is the input(resp. output) dimension of the transform
@@ -34,7 +34,7 @@ class MLP(nn.Module):
         self.transform = nn.Sequential()
 
         for k in range(len(features_dim_list)-1):
-            self.transform.add_module(f'module_{k}_1', nn.Linear(features_dim_list[k], features_dim_list[k+1]))
+            self.transform.add_module(f'module_{k}_1', nn.Linear(features_dim_list[k], features_dim_list[k+1], device=device))
             self.transform.add_module(f'module_{k}_2', activation_layer)
         self.transform.add_module(f'Final scaling', Scale(scaling_factor))
 
@@ -69,7 +69,6 @@ class InvertibleMapping(nn.Module):
             A = A/(det**(1/dim))
         
         
-        self.A =  A
         self.A = A
         self.A.requires_grad = False
         self.A_inv = torch.linalg.inv(self.A)
