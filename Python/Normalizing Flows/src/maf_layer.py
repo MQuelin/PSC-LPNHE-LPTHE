@@ -13,6 +13,7 @@ class MAFLayer(nn.Module):
         self.pb = nn.ParameterList([nn.Parameter(torch.zeros(i+input_dim)) for i in range(output_dim)])
     
     def forward(self, X, c, reverse_f=False):
+        print("f", X.shape, c.shape)
         x = torch.cat((c,X),dim=1).T
         z = x.clone().detach()
         log_det = 0
