@@ -95,10 +95,10 @@ class ConditionalNF(nn.Module):
         for k in range(flow_length):
             shape_list_1 = [output_dim - n + input_dim] + MLP_shape_list + [n]
             shape_list_2 = [n + input_dim] + MLP_shape_list + [output_dim - n]
-            m1 = MLP(shape_list_1)
-            m2 = MLP(shape_list_2)
-            s1 = MLP(shape_list_1)
-            s2 = MLP(shape_list_2)
+            m1 = MLP(shape_list_1, activation_layer=nn.Tanh())
+            m2 = MLP(shape_list_2, activation_layer=nn.Tanh())
+            s1 = MLP(shape_list_1, activation_layer=nn.Tanh())
+            s2 = MLP(shape_list_2, activation_layer=nn.Tanh())
             self.layers.append(ConditionalAffineCouplingLayer(  input_dim=input_dim,
                                                                 output_dim=output_dim,
                                                                 n=n,
