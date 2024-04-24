@@ -3,15 +3,17 @@ import torch
 from flows import ConditionalNF, CIAF
 from datasets import TestSet2
 from train import ConditionalTrainer
-from tests import sample_flow_discreet
+from tests import *
 
 
 import matplotlib.pyplot as plt
 
 torch.set_default_dtype(torch.float64)
 
-# flow = CIAF(4, 1, 3)
+# flow = ConditionalNF(4, 1, 3)
 flow = torch.load('Python/Normalizing Flows/models/test.pt')
+is_cond_flow_invertible(flow, verbose=True)
+is_cond_flow_invertible(flow, verbose=True, reversed=True)
 sample_flow_discreet(flow,100,show_train_set=False)
 optimizer = torch.optim.Adam(flow.parameters(), lr=1e-4)
 data = TestSet2(50000, plot_data=True)

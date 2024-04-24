@@ -13,7 +13,7 @@ If you wish to do personnal tests:
 
 
 def is_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
-    batch = 10*torch.randn(10, flow.output_dim).to('cuda')
+    batch = 10*torch.randn(1000, flow.output_dim).to('cuda')
     output, det = flow(batch, reverse = reversed)
     output_inv, det_inv = flow(output, reverse = not reversed)
 
@@ -29,10 +29,10 @@ def is_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
         return(False)
 
 def is_cond_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
-    labels = torch.randn(10, flow.input_dim).to('cuda')
+    labels = torch.randn(1000, flow.input_dim).to('cuda')
     # if flow.input_dim == 1:
     #     labels = labels.unsqueeze(dim=1)
-    batch = 10*torch.randn(10, flow.output_dim).to('cuda')
+    batch = 10*torch.randn(1000, flow.output_dim).to('cuda')
 
     output, det = flow(c=labels, z=batch, reverse = False)
     output_inv, det_inv = flow(c=labels, z=output, reverse = True)
@@ -45,10 +45,18 @@ def is_cond_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
     else:
         if verbose:
             print(f'reverse is {reversed}, flow is not invertible with max error encountered {max_err}\n')
-            print(f'det = {det}\ndet_inv = {det_inv}\n\n')
+            print(f'det = {det[:12]}\n\ndet_inv = {det_inv[:12]}\n\n')
             print(batch[0])
             print(output_inv[0])
         return(False)
+    
+def is_cond_flow_continuous(flow, labels, samples_per_label=100, threshold=1e8, verbose=False, reversed=False):
+    for label in labels:
+        label_tensor = torch.tensor(samples_per_label*[label])
+    # TODO
+
+
+    return
 
 def sample_flow_1D(flow, n=100, start=0, end=pi, show_train_set=True):
     delta = end-start
