@@ -33,9 +33,12 @@ class MLP(nn.Module):
 
         self.transform = nn.Sequential()
 
-        for k in range(len(features_dim_list)-1):
-            self.transform.add_module(f'module_{k}_1', nn.Linear(features_dim_list[k], features_dim_list[k+1], device=device))
-            self.transform.add_module(f'module_{k}_2', activation_layer)
+        self.transform.add_module(f'module_{0}_1', nn.Linear(features_dim_list[0], features_dim_list[1], device=device))
+        self.transform.add_module(f'module_{0}_2', nn.ReLU())
+
+        for k in range(len(features_dim_list)-2):
+            self.transform.add_module(f'module_{k+1}_1', nn.Linear(features_dim_list[k+1], features_dim_list[k+2], device=device))
+            self.transform.add_module(f'module_{k+1}_2', activation_layer)
         self.transform.add_module(f'Final scaling', Scale(scaling_factor))
 
         
@@ -51,6 +54,74 @@ class MLP(nn.Module):
         """
         
         return self.transform(z)
+
+
+class GaussianLayer(nn.Module):
+    """
+    A neural network applying a gaussian transformation over a batch of input vectors of shape [batch_size,dim]
+    """
+    
+    def __init__(self, in_features, out_features, device='cuda'):
+        """
+        Arguments:
+            -in_features number of dimensions of input vectors
+            -out_features number of dimensiosn of output vectors
+        """
+        super().__init__()
+        # ( z * (z@cov_batch) ).sum(dim=2).T
+        self.diag_params = nn.Parameter(torch.randn(size=(out_features,in_features))).to(device)
+        self.mean_params = nn.Parameter(5*torch.randn(size=(out_features, in_features,1))).to(device)
+        self.scale_params = nn.Parameter(torch.randn(out_features)).to(device)
+
+        self._clamp_func1 = nn.Sigmoid()
+        self._clamp_func2 = nn.Tanh()
+    
+    def clamped_diag_params(self):
+        floor = 0.1
+        ceil = 1
+
+        delta = (ceil - floor)
+        return floor + delta*self._clamp_func1(self.diag_params)
+    
+    def clamped_scale_params(self):
+        return self._clamp_func2(self.scale_params)
+
+    def forward(self, z):
+        """
+        performs gaussian transform on z
+
+        Arguments:
+            -z: Torch.tensor of size (m, data_dim) where m is batch size and data_dim is dim of input data vectors
+
+        Returns: 
+            -x: Torch.tensor of size (m, output_dim)
+        """
+        cov_batch = torch.stack([torch.diag(self.clamped_diag_params()[k]) for k in range(self.diag_params.shape[0])])
+
+        z_cov_z = ( z * (z@cov_batch) ).sum(dim=2).T
+        mean_cov_mean = ( self.mean_params.transpose(1,2) @ (cov_batch@self.mean_params) ).squeeze(1).squeeze(1)
+        z_cov_mean = ( z @ (cov_batch@self.mean_params) ).squeeze(2).T
+
+        scaling_vector = self.clamped_scale_params()
+
+        return scaling_vector * torch.exp(- z_cov_z - mean_cov_mean + 2*z_cov_mean)
+        
+
+class GAU(nn.Module):
+    """
+    Gaussian activation unit
+    """
+    def __init__(self, in_features, n, out_features, device) -> None:
+        super().__init__()
+
+        self.transform = nn.Sequential()
+        self.transform.add_module('Gaussian Layer', GaussianLayer(in_features, n, device))
+        self.transform.add_module('Linear Layer', nn.Linear(n, out_features, bias=False, device=device))
+    
+    def forward(self, z):
+
+        return self.transform(z)
+
 
 
 class InvertibleMapping(nn.Module):
@@ -85,3 +156,32 @@ class InvertibleMapping(nn.Module):
             return torch.transpose(self.A@z,0,1)
         else:
             return torch.transpose(self.A_inv@z,0,1)
+
+class DampenedRoot(nn.Module):
+    """
+    Applies a dampened root function elementwise
+    x = x(1-exp(-1/x^2)) + exp(-1/x^2) * sign(x) * (|x|) ^ (1/n) where n is an integer
+    """
+
+    def __init__(self, n):
+        super().__init__()
+        self.n = n
+
+    def forward(self, x):
+        # x is a matrix batch x hidden dim
+        a = torch.exp(-(torch.pow(x,-2)))
+        return x*(1-a) + a*torch.sign(x)*torch.pow(torch.abs(x),1/self.n)
+
+class ReLogU(nn.Module):
+    """
+    Applies a 'rectified logarithmic unit' function elementwise
+    x = sign(x)*log(1+|x|)
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        # x is a matrix batch x hidden dim
+        return torch.sign(x)*torch.log(1+torch.abs(x))
+
