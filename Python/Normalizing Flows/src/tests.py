@@ -11,9 +11,10 @@ If you wish to do personnal tests:
     -> this file is in the .gitignore and will therefore not be modified so that you can keep personnal tests in that file
 """
 
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def is_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
-    batch = 10*torch.randn(1000, flow.output_dim).to('cuda')
+    batch = 10*torch.randn(1000, flow.output_dim).to(device)
     output, det = flow(batch, reverse = reversed)
     output_inv, det_inv = flow(output, reverse = not reversed)
 
@@ -29,10 +30,13 @@ def is_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
         return(False)
 
 def is_cond_flow_invertible(flow, eps=1e-6, verbose=False, reversed = False):
-    labels = torch.randn(1000, flow.input_dim).to('cuda')
+    labels = torch.randn(1000, flow.input_dim).to(device)
     # if flow.input_dim == 1:
     #     labels = labels.unsqueeze(dim=1)
-    batch = 10*torch.randn(1000, flow.output_dim).to('cuda')
+    batch = 10*torch.randn(1000, flow.output_dim).to(device)
+    batch=torch.sigmoid(batch)
+    labels=torch.sigmoid(labels)
+    print(batch,labels)
 
     output, det = flow(c=labels, z=batch, reverse = False)
     output_inv, det_inv = flow(c=labels, z=output, reverse = True)
